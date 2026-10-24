@@ -26,9 +26,40 @@
 
     --text-primary: #26332E;
     --text-secondary: #5C6E66;
-    --text-tertiary: #A3B5AC;
+    --text-tertiary: #6F8178;
 
     --border-color: #E2E8E5;
+
+    /* Variáveis referenciadas pelo CSS/HTML mas que NÃO estavam definidas
+       (causavam botões sem fundo com texto branco, bordas e links invisíveis no modo claro) */
+    --accent-lavender: #2F7D63;
+    --accent-lavender-soft: #E6F5EF;
+    --accent-lavender-text: #245C4A;
+    --accent-danger: #D64545;
+
+    /* Botões sólidos com contraste AA para texto branco */
+    --btn-solid: linear-gradient(135deg, #2F7D63, #245C4A);
+    --btn-solid-shadow: 0 4px 14px rgba(36, 92, 74, 0.28);
+    --btn-peach-solid: linear-gradient(135deg, #D9605B, #C24A47);
+    --btn-peach-shadow: 0 4px 14px rgba(194, 74, 71, 0.28);
+    --btn-blue-solid: linear-gradient(135deg, #2F7FA8, #256A8F);
+    --btn-danger-solid: linear-gradient(135deg, #D64545, #B93636);
+    --focus-ring: rgba(47, 125, 99, 0.18);
+
+    /* Card principal (meta diária) e trilhas de progresso */
+    --meta-card-bg: linear-gradient(135deg, #E6F5EF 0%, #FFFFFF 100%);
+    --meta-card-border: rgba(36, 92, 74, 0.14);
+    --meta-card-shadow: 0 8px 28px rgba(36, 92, 74, 0.12);
+    --track-bg: rgba(36, 92, 74, 0.10);
+    --progress-fill: #1E9E76;
+    --icon-chip-bg: rgba(36, 92, 74, 0.08);
+
+    /* Overlay de carregamento */
+    --overlay-bg: rgba(247, 247, 242, 0.88);
+    --overlay-text: #26332E;
+    --overlay-ring: rgba(36, 92, 74, 0.15);
+
+    color-scheme: light dark;
     --shadow-sm: 0 1px 3px rgba(36, 92, 74, 0.05);
     --shadow-md: 0 4px 15px rgba(36, 92, 74, 0.08);
     --shadow-lg: 0 8px 30px rgba(36, 92, 74, 0.12);
@@ -62,6 +93,29 @@
         --accent-green-text: #78C6A3;
         --accent-peach-soft: #4A2626;
         --accent-peach-text: #F28C8C;
+
+        --accent-lavender: #78C6A3;
+        --accent-lavender-soft: #1B3B2F;
+        --accent-lavender-text: #78C6A3;
+        --accent-danger: #F28C8C;
+
+        --btn-solid: linear-gradient(135deg, #3E9C7D, #2F7D63);
+        --btn-solid-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+        --btn-peach-solid: linear-gradient(135deg, #D9605B, #C24A47);
+        --btn-peach-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+        --btn-blue-solid: linear-gradient(135deg, #2F7FA8, #256A8F);
+        --focus-ring: rgba(120, 198, 163, 0.22);
+
+        --meta-card-bg: linear-gradient(135deg, rgba(20, 42, 36, 0.8) 0%, rgba(13, 27, 23, 0.9) 100%);
+        --meta-card-border: rgba(120, 198, 163, 0.1);
+        --meta-card-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        --track-bg: rgba(255, 255, 255, 0.06);
+        --progress-fill: #20B286;
+        --icon-chip-bg: rgba(255, 255, 255, 0.05);
+
+        --overlay-bg: rgba(15, 15, 20, 0.85);
+        --overlay-text: #FFFFFF;
+        --overlay-ring: rgba(255, 255, 255, 0.1);
     }
 }
 
@@ -218,6 +272,14 @@ input, select, textarea, button {
     animation: fadeIn 0.3s ease;
 }
 
+.auth-hint {
+    text-align: center;
+    margin-bottom: 15px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
 /* ==================== COMPONENTES FORM ==================== */
 
 .form-group {
@@ -250,7 +312,7 @@ input, select, textarea, button {
 .form-input:focus {
     border-color: var(--accent-lavender);
     background: var(--bg-card);
-    box-shadow: 0 0 0 4px rgba(184, 169, 212, 0.15);
+    box-shadow: 0 0 0 4px var(--focus-ring);
 }
 
 .form-input::placeholder {
@@ -300,34 +362,34 @@ textarea.form-input {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--accent-lavender), #9B8BC4);
-    color: white;
-    box-shadow: 0 4px 14px rgba(184, 169, 212, 0.4);
+    background: var(--btn-solid);
+    color: #FFFFFF;
+    box-shadow: var(--btn-solid-shadow);
 }
 
 .btn-primary:hover:not(:disabled) {
-    box-shadow: 0 6px 20px rgba(184, 169, 212, 0.5);
+    box-shadow: 0 6px 20px rgba(36, 92, 74, 0.38);
     transform: translateY(-1px);
 }
 
 .btn-green {
-    background: linear-gradient(135deg, var(--accent-green), #5FB88A);
-    color: white;
-    box-shadow: 0 4px 14px rgba(126, 203, 161, 0.4);
+    background: var(--btn-solid);
+    color: #FFFFFF;
+    box-shadow: var(--btn-solid-shadow);
 }
 
 .btn-green:hover:not(:disabled) {
-    box-shadow: 0 6px 20px rgba(126, 203, 161, 0.5);
+    box-shadow: 0 6px 20px rgba(36, 92, 74, 0.38);
 }
 
 .btn-peach {
-    background: linear-gradient(135deg, var(--accent-peach), #E88A6A);
-    color: white;
-    box-shadow: 0 4px 14px rgba(244, 169, 138, 0.4);
+    background: var(--btn-peach-solid);
+    color: #FFFFFF;
+    box-shadow: var(--btn-peach-shadow);
 }
 
 .btn-peach:hover:not(:disabled) {
-    box-shadow: 0 6px 20px rgba(244, 169, 138, 0.5);
+    box-shadow: 0 6px 20px rgba(194, 74, 71, 0.38);
 }
 
 .btn-outline {
@@ -336,9 +398,39 @@ textarea.form-input {
     border: 2px solid var(--border-color);
 }
 
+.btn-outline:hover:not(:disabled) {
+    background: var(--bg-input);
+}
+
+/* Variantes utilitárias (substituem estilos inline com contraste ruim) */
+.btn-solid {
+    background: var(--btn-solid);
+    color: #FFFFFF;
+    border: none;
+    font-weight: 700;
+    box-shadow: var(--btn-solid-shadow);
+}
+
+.btn-blue {
+    background: var(--btn-blue-solid);
+    color: #FFFFFF;
+    border: none;
+}
+
+.link-accent {
+    color: var(--accent-green-text);
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.link-accent:hover {
+    text-decoration: underline;
+}
+
 .btn-danger {
-    background: linear-gradient(135deg, var(--accent-danger), #D06A6A);
-    color: white;
+    background: var(--btn-danger-solid);
+    color: #FFFFFF;
 }
 
 /* ==================== HEADER (Dentro do App) ==================== */
@@ -1141,7 +1233,7 @@ textarea.form-input {
 
 .choice-icon {
     font-size: 2rem;
-    background: white;
+    background: var(--bg-card);
     width: 60px;
     height: 60px;
     display: flex;
@@ -1168,7 +1260,7 @@ textarea.form-input {
 .magic-loading-overlay {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(15, 15, 20, 0.85);
+    background: var(--overlay-bg);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     z-index: 9999;
@@ -1189,7 +1281,7 @@ textarea.form-input {
 .loading-spinner {
     width: 48px;
     height: 48px;
-    border: 4px solid rgba(255, 255, 255, 0.1);
+    border: 4px solid var(--overlay-ring);
     border-top-color: var(--accent-lavender);
     border-radius: 50%;
     animation: spin 1s linear infinite;
@@ -1199,10 +1291,19 @@ textarea.form-input {
 .magic-text-container {
     z-index: 3;
     text-align: center;
+    padding: 0 24px;
+}
+
+#magic-loading-sub {
+    color: var(--overlay-text);
+    opacity: 0.7;
+    font-size: 0.85rem;
+    margin-top: 8px;
+    min-height: 1.2em;
 }
 
 #magic-loading-text {
-    color: white;
+    color: var(--overlay-text);
     font-size: 1.1rem;
     font-weight: 500;
 }
@@ -1250,12 +1351,12 @@ textarea.form-input {
 
 /* Meta Diária Card */
 .meta-diaria-card {
-    background: linear-gradient(135deg, rgba(20, 42, 36, 0.8) 0%, rgba(13, 27, 23, 0.9) 100%);
-    border: 1px solid rgba(120, 198, 163, 0.1);
+    background: var(--meta-card-bg);
+    border: 1px solid var(--meta-card-border);
     border-radius: 28px;
     padding: 24px;
     margin: 0 20px 24px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--meta-card-shadow);
 }
 
 .meta-diaria-content {
@@ -1304,7 +1405,7 @@ textarea.form-input {
 
 .circle-bg {
     fill: none;
-    stroke: rgba(255, 255, 255, 0.05);
+    stroke: var(--track-bg);
     stroke-width: 2.5;
 }
 
@@ -1312,7 +1413,7 @@ textarea.form-input {
     fill: none;
     stroke-width: 2.5;
     stroke-linecap: round;
-    stroke: #20B286; /* Teal principal */
+    stroke: var(--progress-fill); /* Teal principal */
     transition: stroke-dasharray 1s ease-out;
 }
 
@@ -1337,7 +1438,7 @@ textarea.form-input {
 
 .linear-bar-bg {
     height: 6px;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--track-bg);
     border-radius: 4px;
     overflow: hidden;
     margin-bottom: 8px;
@@ -1345,7 +1446,7 @@ textarea.form-input {
 
 .linear-bar-fill {
     height: 100%;
-    background: #20B286;
+    background: var(--progress-fill);
     border-radius: 4px;
     transition: width 1s ease;
 }
@@ -1386,7 +1487,7 @@ textarea.form-input {
 
 .action-icon {
     font-size: 1.6rem;
-    color: var(--accent-green);
+    color: var(--accent-lavender);
 }
 
 .action-label {
@@ -1419,7 +1520,7 @@ textarea.form-input {
 }
 
 .calendar-icon, .stats-icon {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--icon-chip-bg);
     padding: 6px;
     border-radius: 8px;
     font-size: 1rem;
@@ -1464,9 +1565,9 @@ textarea.form-input {
     margin-right: 16px;
 }
 
-.icon-refeicao { background: rgba(120, 198, 163, 0.1); }
-.icon-exercicio { background: rgba(120, 198, 163, 0.1); }
-.icon-agua { background: rgba(142, 197, 232, 0.1); }
+.icon-refeicao { background: rgba(120, 198, 163, 0.18); color: var(--accent-green-text); }
+.icon-exercicio { background: rgba(120, 198, 163, 0.18); color: var(--accent-green-text); }
+.icon-agua { background: rgba(142, 197, 232, 0.22); color: #2F7FA8; }
 
 .hoje-details {
     flex: 1;
@@ -1492,7 +1593,7 @@ textarea.form-input {
 
 .agua-mini-bar-bg {
     height: 4px;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--track-bg);
     border-radius: 2px;
     margin-top: 8px;
     width: 100%;
@@ -1607,8 +1708,8 @@ textarea.form-input {
     transition: all 0.2s;
 }
 .agua-preset-btn:active {
-    background: var(--accent-blue);
-    color: white;
+    background: #2F7FA8;
+    color: #FFFFFF;
 }
 
 /* CSS RESPONSIVIDADE EXTRAS E AJUSTE 3 COLUNAS */

@@ -9,9 +9,10 @@
     <link rel="apple-touch-icon" href="/static/img/icon.png?v=2">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="color-scheme" content="light dark">
     <meta name="description" content="NutriIA — Sua calculadora nutricional inteligente com IA Gemini">
     <link rel="manifest" href="/static/manifest.json">
-    <link rel="stylesheet" href="/static/css/app.css?v=8">
+    <link rel="stylesheet" href="/static/css/app.css?v=9">
 </head>
 
 <body>
@@ -80,7 +81,7 @@
     <!-- Modal Escaneamento Mágico -->
     <div class="modal-overlay" id="modal-foto">
         <div class="modal-content"
-            style="background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.5);">
+            style="backdrop-filter: blur(10px); border: 1px solid var(--border-color);">
             <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
                 <span class="svg-icon" style="color: var(--accent-lavender-text);"><svg viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -131,7 +132,7 @@
             <div style="display: flex; gap: 10px; margin-top: 15px;">
                 <button type="button" class="btn btn-outline" onclick="fecharModalFoto()">Cancelar</button>
                 <button type="button" class="btn"
-                    style="background: linear-gradient(135deg, #B8A9D4 0%, #7ECBA1 100%); color: white; border: none;"
+                    style="background: var(--btn-solid); color: #FFFFFF; border: none;"
                     id="btn-enviar-foto" onclick="registrarRefeicao(event, true)">Analisar</button>
             </div>
         </div>
@@ -168,7 +169,7 @@
                     <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px;">
                         Você pode digitar o alimento e as calorias manualmente. Os dados salvarão seu histórico e ensinarão a IA a reconhecer este alimento!
                     </div>
-                    <button type="button" class="btn btn-outline" style="width: 100%; border-color: var(--accent-green); color: var(--accent-green); font-size: 0.85rem; padding: 8px 12px;" onclick="abrirRegistroManualStep()">
+                    <button type="button" class="btn btn-outline" style="width: 100%; border-color: var(--accent-green-text); color: var(--accent-green-text); font-size: 0.85rem; padding: 8px 12px;" onclick="abrirRegistroManualStep()">
                         ✍️ Preencher Manualmente &amp; Ensinar IA
                     </button>
                 </div>
@@ -179,7 +180,7 @@
                 </div>
 
                 <div style="text-align: center; margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 12px;">
-                    <button type="button" style="background: none; border: none; color: var(--accent-green); font-size: 0.85rem; cursor: pointer; text-decoration: underline; font-weight: 500;" onclick="abrirRegistroManualStep()">
+                    <button type="button" style="background: none; border: none; color: var(--accent-green-text); font-size: 0.85rem; cursor: pointer; text-decoration: underline; font-weight: 500;" onclick="abrirRegistroManualStep()">
                         ✍️ Prefere preencher manualmente? Clique aqui
                     </button>
                 </div>
@@ -190,7 +191,7 @@
                     <div style="font-size: 0.9rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;">REFEIÇÃO</div>
                     <div id="registro-rapido-nome-refeicao" style="font-size: 1.4rem; font-weight: 700; color: var(--text-primary); margin-bottom: 15px;">Café da manhã</div>
                     
-                    <div style="font-size: 2rem; font-weight: bold; color: var(--accent-green-dark); margin-bottom: 15px;">
+                    <div style="font-size: 2rem; font-weight: bold; color: var(--accent-green-text); margin-bottom: 15px;">
                         ≈ <span id="registro-rapido-kcal">0</span> kcal
                     </div>
                     
@@ -210,7 +211,7 @@
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                     <button type="button" class="btn btn-outline" style="flex: 1;" onclick="voltarRegistroRapido()">Corrigir</button>
                     <button type="button" class="btn btn-outline" style="flex: 1; border-color: var(--accent-lavender); color: var(--accent-lavender);" onclick="abrirRegistroManualStep(true)">Preencher Manual</button>
-                    <button type="button" class="btn" style="background: var(--accent-green); color: white; border: none; font-weight: bold; flex: 2;" onclick="confirmarRegistroRapido()">Confirmar</button>
+                    <button type="button" class="btn" style="background: var(--btn-solid); color: #FFFFFF; border: none; font-weight: bold; flex: 2;" onclick="confirmarRegistroRapido()">Confirmar</button>
                 </div>
             </div>
 
@@ -251,7 +252,7 @@
 
                 <div class="form-group">
                     <label class="form-label">Total de Calorias (kcal) *</label>
-                    <input type="number" id="manual-calorias" class="form-input" placeholder="Ex: 250" min="0" step="1" required style="font-size: 1.1rem; font-weight: bold; color: var(--accent-green-dark);">
+                    <input type="number" id="manual-calorias" class="form-input" placeholder="Ex: 250" min="0" step="1" required style="font-size: 1.1rem; font-weight: bold; color: var(--accent-green-text);">
                 </div>
 
                 <div style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); margin: 10px 0 6px;">Macronutrientes (opcional):</div>
@@ -279,7 +280,7 @@
 
                 <div style="display: flex; gap: 10px;">
                     <button type="button" class="btn btn-outline" onclick="voltarDoManual()">Voltar</button>
-                    <button type="button" class="btn btn-primary" style="flex: 1; background: var(--accent-green); border: none; font-weight: bold;" onclick="salvarRefeicaoManual()">Salvar &amp; Ensinar</button>
+                    <button type="button" class="btn btn-primary" style="flex: 1; background: var(--btn-solid); border: none; font-weight: bold;" onclick="salvarRefeicaoManual()">Salvar &amp; Ensinar</button>
                 </div>
             </div>
         </div>
@@ -319,6 +320,7 @@
         <div class="loading-spinner"></div>
         <div class="magic-text-container">
             <h2 id="magic-loading-text">Analisando dados...</h2>
+            <p id="magic-loading-sub"></p>
         </div>
     </div>
 
@@ -343,7 +345,7 @@
 
             <div style="display: flex; gap: 10px; margin-top: 20px;">
                 <button type="button" class="btn btn-outline" onclick="fecharModalAgua()">Cancelar</button>
-                <button type="button" class="btn btn-primary" style="flex: 1; background: var(--accent-blue);" onclick="salvarAguaManual()">Registrar</button>
+                <button type="button" class="btn btn-primary" style="flex: 1; background: var(--btn-blue-solid);" onclick="salvarAguaManual()">Registrar</button>
             </div>
         </div>
     </div>
@@ -371,7 +373,7 @@
                     <input type="password" id="login-senha" class="form-input" placeholder="Sua senha" required>
                 </div>
                 <div style="text-align: right; margin-bottom: 15px;">
-                    <a href="#" onclick="trocarAuthTab('recuperar')" style="color: var(--accent-lavender); font-size: 0.85rem; text-decoration: none;">Esqueci minha senha</a>
+                    <a href="#" onclick="trocarAuthTab('recuperar')" class="link-accent">Esqueci minha senha</a>
                 </div>
                 <button type="submit" id="btn-login" class="btn btn-primary">Entrar</button>
             </form>
@@ -388,8 +390,8 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Senha</label>
-                    <input type="password" id="reg-senha" class="form-input" placeholder="Mínimo 4 caracteres" required
-                        minlength="4">
+                    <input type="password" id="reg-senha" class="form-input" placeholder="Mínimo 6 caracteres" required
+                        minlength="6">
                 </div>
                 <button type="submit" id="btn-registrar" class="btn btn-primary">Criar Conta</button>
             </form>
@@ -397,15 +399,32 @@
             <!-- Form Recuperar Senha -->
             <form id="form-recuperar" class="auth-form" onsubmit="fazerRecuperacaoSenha(event)">
                 <div style="text-align: center; margin-bottom: 15px; color: var(--text-secondary); font-size: 0.9rem;">
-                    Insira seu email para gerarmos uma nova senha provisória.
+                    Informe seu e-mail e enviaremos um link para você criar uma nova senha.
                 </div>
                 <div class="form-group">
                     <label class="form-label">Email</label>
                     <input type="email" id="rec-email" class="form-input" placeholder="seu@email.com" required>
                 </div>
-                <button type="submit" id="btn-recuperar" class="btn btn-primary" style="margin-bottom: 10px;">Gerar Nova Senha</button>
+                <button type="submit" id="btn-recuperar" class="btn btn-primary" style="margin-bottom: 10px;">Enviar link por e-mail</button>
                 <div style="text-align: center;">
-                    <a href="#" onclick="trocarAuthTab('login')" style="color: var(--accent-lavender); font-size: 0.85rem; text-decoration: none;">Voltar para o Login</a>
+                    <a href="#" onclick="trocarAuthTab('login')" class="link-accent">Voltar para o Login</a>
+                </div>
+            </form>
+
+            <!-- Form Redefinir Senha (aberto pelo link recebido por e-mail) -->
+            <form id="form-redefinir" class="auth-form" onsubmit="fazerRedefinicaoSenha(event)">
+                <div class="auth-hint">Crie sua nova senha de acesso.</div>
+                <div class="form-group">
+                    <label class="form-label">Nova senha</label>
+                    <input type="password" id="redef-senha" class="form-input" placeholder="Mínimo 6 caracteres" required minlength="6" autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Confirmar nova senha</label>
+                    <input type="password" id="redef-senha2" class="form-input" placeholder="Repita a nova senha" required minlength="6" autocomplete="new-password">
+                </div>
+                <button type="submit" id="btn-redefinir" class="btn btn-primary" style="margin-bottom: 10px;">Salvar nova senha</button>
+                <div style="text-align: center;">
+                    <a href="#" onclick="trocarAuthTab('login')" class="link-accent">Voltar para o Login</a>
                 </div>
             </form>
         </div>
@@ -597,7 +616,7 @@
         </div>
 
         <div style="margin: 20px 0;">
-            <button class="btn" style="width: 100%; background: linear-gradient(135deg, #B8A9D4 0%, #7ECBA1 100%); color: white; border: none; padding: 12px; font-weight: bold; border-radius: 12px; box-shadow: var(--shadow-sm);" onclick="analisarSemana()">
+            <button class="btn" style="width: 100%; background: var(--btn-solid); color: #FFFFFF; border: none; padding: 12px; font-weight: bold; border-radius: 12px; box-shadow: var(--shadow-sm);" onclick="analisarSemana()">
                  Analisar a Semana Inteira
             </button>
         </div>
@@ -786,12 +805,25 @@
         }
 
         async function apiPost(url, body) {
-            const res = await fetch(url, {
-                method: "POST",
-                headers: authHeaders(),
-                body: JSON.stringify(body)
-            });
-            return handleResponse(res);
+            // Evita ficar "Calculando" indefinidamente: aborta após 75 s
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), 75000);
+            try {
+                const res = await fetch(url, {
+                    method: "POST",
+                    headers: authHeaders(),
+                    body: JSON.stringify(body),
+                    signal: ctrl.signal
+                });
+                return await handleResponse(res);
+            } catch (err) {
+                if (err.name === "AbortError") {
+                    throw new Error("A análise demorou mais que o esperado. Tente novamente em instantes.");
+                }
+                throw err;
+            } finally {
+                clearTimeout(timer);
+            }
         }
 
         async function apiGet(url) {
@@ -880,6 +912,8 @@
                 document.getElementById("form-registrar").classList.add("active");
             } else if (tab === "recuperar") {
                 document.getElementById("form-recuperar").classList.add("active");
+            } else if (tab === "redefinir") {
+                document.getElementById("form-redefinir").classList.add("active");
             }
         }
 
@@ -961,20 +995,44 @@
                     body: JSON.stringify({ email: document.getElementById("rec-email").value })
                 }).then(r => r.json().then(d => { if (!r.ok) throw new Error(d.detail); return d; }));
 
-                if (data.nova_senha) {
-                    alert(`Senha resetada com sucesso!\n\nSua nova senha é: ${data.nova_senha}\n\nPor favor, faça login com ela e vá no Perfil para alterá-la para uma de sua preferência.`);
-                    document.getElementById("login-senha").value = data.nova_senha;
-                } else {
-                    alert(data.mensagem || "Solicitação de recuperação processada. Verifique as orientações no terminal do servidor por segurança.");
-                    document.getElementById("login-senha").value = "";
-                }
+                toast(data.mensagem || "Se o e-mail estiver cadastrado, enviamos um link de recuperação.");
                 trocarAuthTab('login');
                 document.getElementById("login-email").value = document.getElementById("rec-email").value;
             } catch (err) {
                 toast(err.message, "error");
             } finally {
                 btn.disabled = false;
-                btn.textContent = "Gerar Nova Senha";
+                btn.textContent = "Enviar link por e-mail";
+            }
+        }
+
+        async function fazerRedefinicaoSenha(e) {
+            e.preventDefault();
+            const senha = document.getElementById("redef-senha").value;
+            if (senha !== document.getElementById("redef-senha2").value) {
+                toast("As senhas não coincidem.", "error");
+                return;
+            }
+            const btn = document.getElementById("btn-redefinir");
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>';
+
+            try {
+                await fetch("/api/auth/redefinir-senha", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token: tokenRedefinicao, nova_senha: senha })
+                }).then(r => r.json().then(d => { if (!r.ok) throw new Error(d.detail); return d; }));
+
+                tokenRedefinicao = null;
+                document.getElementById("form-redefinir").reset();
+                trocarAuthTab('login');
+                toast("Senha redefinida! Entre com a nova senha.");
+            } catch (err) {
+                toast(err.message, "error");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Salvar nova senha";
             }
         }
 
@@ -1243,15 +1301,27 @@
         }
 
         // ==================== LOADING UX ====================
+        let loadingTimers = [];
+
         function mostrarLoadingMagico() {
             const overlay = document.getElementById("magic-loading-overlay");
             const textEl = document.getElementById("magic-loading-text");
+            const subEl = document.getElementById("magic-loading-sub");
+            loadingTimers.forEach(clearTimeout);
             overlay.classList.add("active");
             textEl.innerText = "Analisando dados...";
+            subEl.innerText = "";
+            loadingTimers = [
+                setTimeout(() => { subEl.innerText = "Consultando a base nutricional..."; }, 6000),
+                setTimeout(() => { subEl.innerText = "A IA está com bastante demanda, quase lá..."; }, 20000),
+                setTimeout(() => { subEl.innerText = "Isso está levando mais tempo que o normal. Só mais um instante..."; }, 40000),
+            ];
         }
 
         function esconderLoadingMagico() {
             const overlay = document.getElementById("magic-loading-overlay");
+            loadingTimers.forEach(clearTimeout);
+            loadingTimers = [];
             overlay.classList.remove("active");
         }
 
@@ -1836,7 +1906,13 @@
         }
 
         // ==================== INICIALIZAÇÃO ====================
-        if (state.token) {
+        // Link de recuperação recebido por e-mail: /?reset=TOKEN
+        let tokenRedefinicao = new URLSearchParams(window.location.search).get("reset");
+        if (tokenRedefinicao) {
+            history.replaceState(null, "", window.location.pathname); // remove o token da barra de endereço
+            fazerLogout();
+            trocarAuthTab('redefinir');
+        } else if (state.token) {
             inicializarApp();
         }
 

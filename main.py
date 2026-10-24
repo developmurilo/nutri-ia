@@ -4,6 +4,7 @@ import json
 import re
 import uvicorn
 import time
+import hashlib
 from collections import defaultdict
 from datetime import datetime, date, timedelta
 from fastapi import FastAPI, HTTPException, Depends, Header, Request
@@ -72,98 +73,9 @@ def extract_json(text: str) -> str:
         return match.group(1)
     return text
 
-# Inicialização do SDK da OpenAI (via OpenRouter para Textos)
-openai_client = openai.OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.environ.get("OPENROUTER_API_KEY"),
-)
-
-# Inicialização do SDK do Gemini
-import google.generativeai as genai
-try:
-    genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-    gemini_client_ready = True
-except Exception as e:
-    print("Gemini client não configurado:", e)
-    gemini_client_ready = False
-
-def chamar_ia_com_retry(prompt: str, schema: dict, system_instruction: str, max_retries: int = 6, imagem_base64: Optional[str] = None) -> dict:
-    """Encapsula a chamada à IA. Usa Gemini como primário e OpenRouter como fallback."""
-    import time
-    ultimo_erro = None
-    
-    full_system_instruction = f"{system_instruction}\n\nVocê deve retornar ESTRITAMENTE um JSON válido com esta estrutura exata (e responda apenas com o JSON):\n{json.dumps(schema)}"
-
-    # ------------------ ROTA PRIMÁRIA (GEMINI) ------------------
-    if gemini_client_ready:
-        modelos_gemini = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite"]
-        for nome_modelo in modelos_gemini:
-            try:
-                import base64
-                
-                contents = []
-                if imagem_base64:
-                    # Extrai apenas o raw base64
-                    img_data = imagem_base64.split(",")[1] if "," in imagem_base64 else imagem_base64
-                    img_bytes = base64.b64decode(img_data)
-                    contents.append(
-                        {"mime_type": "image/jpeg", "data": img_bytes}
-                    )
-                contents.append(prompt)
-                    
-                model = genai.GenerativeModel(nome_modelo, system_instruction=full_system_instruction)
-                response = model.generate_content(
-                    contents,
-                    generation_config=genai.GenerationConfig(
-                        response_mime_type="application/json",
-                        temperature=0.2,
-                    )
-                )
-                json_str = extract_json(response.text)
-                return json.loads(json_str)
-            except Exception as e:
-                print(f"[IA] Falha no Gemini ({nome_modelo}): {e}")
-                ultimo_erro = e
-    else:
-        print("[IA] Gemini client não configurado. Tentando OpenRouter.")
-
-    # ------------------ ROTA FALLBACK (OPENROUTER) ------------------
-    if imagem_base64:
-        raise ValueError(f"Falha ao usar IA para imagem (Gemini). O fallback não suporta imagens. Erro: {ultimo_erro}")
-
-    full_system_instruction = f"{system_instruction}\n\nVocê deve retornar ESTRITAMENTE um JSON válido com esta estrutura:\n{json.dumps(schema)}"
-
-    modelos_gratuitos = [
-        "google/gemma-4-31b-it:free",
-        "liquid/lfm-2.5-2.6b:free",
-        "nvidia/nemotron-3.5-lightning:free",
-        "qwen/qwen3.8-27b:free",
-        "inclusionai/ling-3.0-flash-vl:free"
-    ]
-
-    for tentativa in range(max_retries):
-        modelo_atual = modelos_gratuitos[tentativa % len(modelos_gratuitos)]
-        try:
-            response = openai_client.chat.completions.create(
-                model=modelo_atual,
-                messages=[
-                    {"role": "system", "content": full_system_instruction},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.2 + (tentativa * 0.1)
-            )
-            
-            content = response.choices[0].message.content
-            if not content:
-                raise ValueError("Resposta vazia da IA.")
-
-            json_str = extract_json(content)
-            data = json.loads(json_str)
-            return data
-        except Exception as e:
-            ultimo_erro = e
-
-    raise ValueError(f"Falha ao interpretar retorno da IA após {max_retries} tentativas. Último erro: {ultimo_erro}")
+# Chamadas à IA (Gemini + fallback OpenRouter) com timeouts e circuit breaker
+from ia_service import chamar_ia_com_retry
+from email_service import enviar_email_recuperacao
 
 # ==================== AUTH ====================
 
@@ -212,6 +124,10 @@ class LoginRequest(BaseModel):
 
 class RecuperarSenhaRequest(BaseModel):
     email: str
+
+class RedefinirSenhaRequest(BaseModel):
+    token: str
+    nova_senha: str
 
 class AlterarSenhaRequest(BaseModel):
     senha_atual: str
@@ -340,35 +256,81 @@ def login(dados: LoginRequest, request: Request):
     finally:
         conn.close()
 
+RESET_TOKEN_MINUTOS = 30
+APP_BASE_URL = os.environ.get("APP_BASE_URL", "").rstrip("/")
+
+
+def _fingerprint_senha(senha_hash: str) -> str:
+    """Impressão digital do hash atual: o token de reset deixa de valer assim que a senha muda (uso único)."""
+    return hashlib.sha256(senha_hash.encode()).hexdigest()[:16]
+
+
+def _criar_token_reset(usuario_id: int, senha_hash: str) -> str:
+    payload = {
+        "sub": str(usuario_id),
+        "purpose": "reset",
+        "fp": _fingerprint_senha(senha_hash),
+        "exp": datetime.utcnow() + timedelta(minutes=RESET_TOKEN_MINUTOS),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
 @app.post("/api/auth/recuperar-senha")
 def recuperar_senha(dados: RecuperarSenhaRequest, request: Request):
     ip = request.client.host if request.client else "unknown"
     verificar_rate_limit(f"recup_{ip}", limite_requisicoes=5, janela_segundos=60)
 
-    import random
+    email = dados.email.lower().strip()
+    verificar_rate_limit(f"recup_email_{email}", limite_requisicoes=3, janela_segundos=600)
+
+    # Resposta sempre igual, exista o e-mail ou não (evita descobrir quem tem conta)
+    resposta = {
+        "sucesso": True,
+        "mensagem": "Se este e-mail estiver cadastrado, enviamos um link para redefinir a senha. Confira também a caixa de spam.",
+    }
+
     conn = get_db()
     try:
-        user = conn.execute("SELECT id FROM usuarios WHERE email = ?", (dados.email.lower().strip(),)).fetchone()
-        if not user:
-            raise HTTPException(status_code=404, detail="Email não encontrado.")
-        
-        nova_senha = str(random.randint(100000, 999999))
-        senha_hash = pwd_context.hash(nova_senha)
-        
-        conn.execute("UPDATE usuarios SET senha_hash = ? WHERE id = ?", (senha_hash, user["id"]))
-        conn.commit()
-        
-        print(f"\n[SEGURANÇA] Senha temporária para o usuário '{dados.email}': {nova_senha}\n")
+        user = conn.execute("SELECT id, nome, senha_hash FROM usuarios WHERE email = ?", (email,)).fetchone()
+    finally:
+        conn.close()
 
-        # Se a requisição veio de rede externa pública, NUNCA expor a senha no JSON
-        is_local = ip in ("127.0.0.1", "::1", "localhost")
-        if is_local:
-            return {"sucesso": True, "nova_senha": nova_senha}
-        else:
-            return {
-                "sucesso": True,
-                "mensagem": "Senha temporária redefinida com segurança. Por proteção, a senha foi impressa no console do servidor."
-            }
+    if not user:
+        return resposta
+
+    base = APP_BASE_URL or str(request.base_url).rstrip("/")
+    token = _criar_token_reset(user["id"], user["senha_hash"])
+    link = f"{base}/?reset={token}"
+    if not enviar_email_recuperacao(email, user["nome"], link, RESET_TOKEN_MINUTOS):
+        print(f"[RECUPERAÇÃO] Não foi possível enviar o e-mail para {email}. Verifique a configuração SMTP.")
+    return resposta
+
+
+@app.post("/api/auth/redefinir-senha")
+def redefinir_senha(dados: RedefinirSenhaRequest, request: Request):
+    ip = request.client.host if request.client else "unknown"
+    verificar_rate_limit(f"redef_{ip}", limite_requisicoes=10, janela_segundos=60)
+
+    if len(dados.nova_senha) < 6:
+        raise HTTPException(status_code=400, detail="A senha deve ter pelo menos 6 caracteres.")
+
+    erro_link = HTTPException(status_code=400, detail="Link inválido ou expirado. Solicite uma nova recuperação de senha.")
+    try:
+        payload = jwt.decode(dados.token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        if payload.get("purpose") != "reset":
+            raise erro_link
+        usuario_id = int(payload["sub"])
+    except (JWTError, KeyError, ValueError):
+        raise erro_link
+
+    conn = get_db()
+    try:
+        user = conn.execute("SELECT id, senha_hash FROM usuarios WHERE id = ?", (usuario_id,)).fetchone()
+        if not user or _fingerprint_senha(user["senha_hash"]) != payload.get("fp"):
+            raise erro_link
+        conn.execute("UPDATE usuarios SET senha_hash = ? WHERE id = ?", (pwd_context.hash(dados.nova_senha), usuario_id))
+        conn.commit()
+        return {"sucesso": True}
     finally:
         conn.close()
 
