@@ -1,7 +1,8 @@
-const CACHE_NAME = 'nutriia-v1';
+const CACHE_NAME = 'nutriia-v2';
 const ASSETS = [
     '/',
     '/static/css/app.css',
+    '/static/js/app.js',
 ];
 
 self.addEventListener('install', (event) => {

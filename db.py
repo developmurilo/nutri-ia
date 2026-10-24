@@ -42,7 +42,8 @@ if IS_POSTGRES:
             adapted = re.sub(r"\?", "%s", sql)
             # Se for INSERT e não tiver RETURNING, adiciona RETURNING id para suportar lastrowid
             clean_sql = adapted.strip()
-            if clean_sql.upper().startswith("INSERT INTO") and "RETURNING" not in clean_sql.upper():
+            sem_id = any(t in clean_sql.upper() for t in ("RATE_LIMITS", "IA_CACHE"))  # tabelas sem coluna id
+            if clean_sql.upper().startswith("INSERT INTO") and "RETURNING" not in clean_sql.upper() and not sem_id:
                 clean_sql = clean_sql.rstrip("; ") + " RETURNING id"
             return clean_sql
 
@@ -214,3 +215,29 @@ def init_db():
 
     conn.commit()
     conn.close()
+
+
+# ==================== TABELAS AUXILIARES (rate limit compartilhado e cache da IA) ====================
+
+_AUX_OK = False
+
+
+def garantir_tabelas_auxiliares():
+    """Cria (se não existirem) as tabelas rate_limits e ia_cache. Idempotente e executa uma vez por processo."""
+    global _AUX_OK
+    if _AUX_OK:
+        return
+    conn = get_db()
+    try:
+        c = conn.cursor()
+        c.execute("CREATE TABLE IF NOT EXISTS rate_limits (chave TEXT NOT NULL, ts DOUBLE PRECISION NOT NULL)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_rate_limits_chave_ts ON rate_limits (chave, ts)")
+        c.execute("CREATE TABLE IF NOT EXISTS ia_cache (chave TEXT PRIMARY KEY, resposta TEXT NOT NULL, criado_em DOUBLE PRECISION NOT NULL)")
+        if os.environ.get("DATABASE_URL"):
+            # Impede acesso pela API pública (PostgREST/anon) do Supabase; o app usa a conexão direta
+            c.execute("ALTER TABLE rate_limits ENABLE ROW LEVEL SECURITY")
+            c.execute("ALTER TABLE ia_cache ENABLE ROW LEVEL SECURITY")
+        conn.commit()
+        _AUX_OK = True
+    finally:
+        conn.close()

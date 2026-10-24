@@ -20,6 +20,7 @@ import difflib
 import json
 import os
 import re
+import time
 import unicodedata
 from math import log
 from typing import Callable, Dict, List, Optional, Tuple
@@ -110,6 +111,8 @@ class BaseAlimentos:
         self.por_nome_norm: Dict[str, Dict] = {}
         self.indice: Dict[str, List[int]] = {}
         self.idf: Dict[str, float] = {}
+        self.vocab: List[str] = []
+        self._ultima_sync = 0.0
         self._carregar(caminho_csv)
 
     @staticmethod
@@ -173,6 +176,10 @@ class BaseAlimentos:
 
     def aprender_alimento(self, nome: str, kcal: float, prot: float, gord: float, carb: float) -> Dict:
         """Adiciona um alimento personalizado à base em memória e persiste em correcoes_base.csv."""
+        existente = self.por_nome_norm.get(normalizar(nome))
+        if existente is not None:  # já aprendido: atualiza os valores em vez de duplicar no índice
+            existente.update({"kcal": float(kcal), "prot": float(prot), "gord": float(gord), "carb": float(carb)})
+            return existente
         item = {
             "nome": nome.strip(),
             "kcal": float(kcal),
@@ -198,6 +205,45 @@ class BaseAlimentos:
 
         print(f"[RAG] Novo alimento aprendido e indexado: {item['nome']} ({item['kcal']} kcal/100g)")
         return item
+
+    def sincronizar_aprendidos(self, get_db: Callable, intervalo: float = 300.0) -> int:
+        """Carrega do banco (Supabase) os alimentos ensinados pelos usuários (fonte 'Usuário').
+
+        O CSV é efêmero em ambiente serverless; o banco é a fonte de verdade do aprendizado.
+        Limitado por `intervalo` segundos para não consultar o banco a cada pedido.
+        Retorna quantos alimentos novos entraram na base em memória.
+        """
+        agora = time.time()
+        if agora - self._ultima_sync < intervalo:
+            return 0
+        self._ultima_sync = agora
+        novos = 0
+        conn = get_db()
+        try:
+            linhas = conn.execute(
+                "SELECT nome, kcal_100g, proteinas_100g, gorduras_100g, carboidratos_100g "
+                "FROM alimentos WHERE fonte = ?", ("Usuário",)
+            ).fetchall()
+        finally:
+            conn.close()
+        for r in linhas:
+            nome = (r["nome"] or "").strip()
+            if not nome:
+                continue
+            valores = {"kcal": float(r["kcal_100g"] or 0), "prot": float(r["proteinas_100g"] or 0),
+                       "gord": float(r["gorduras_100g"] or 0), "carb": float(r["carboidratos_100g"] or 0)}
+            existente = self.por_nome_norm.get(normalizar(nome))
+            if existente is not None:
+                existente.update(valores)
+                continue
+            self._adicionar({"nome": nome, **valores})
+            novos += 1
+        if novos:
+            n = max(len(self.itens), 1)
+            self.idf = {t: log(1 + n / len(ids)) for t, ids in self.indice.items()}
+            self.vocab = list(self.indice.keys())
+            print(f"[RAG] {novos} alimento(s) aprendido(s) carregado(s) do banco.")
+        return novos
 
     # ---------- recuperação ----------
     def _expandir(self, texto: str) -> str:

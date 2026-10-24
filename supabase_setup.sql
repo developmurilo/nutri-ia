@@ -495,3 +495,22 @@ SELECT setval(pg_get_serial_sequence('logs', 'id'), COALESCE(MAX(id), 1)) FROM l
 SELECT setval(pg_get_serial_sequence('agua', 'id'), COALESCE(MAX(id), 1)) FROM agua;
 SELECT setval(pg_get_serial_sequence('alimentos', 'id'), COALESCE(MAX(id), 1)) FROM alimentos;
 SELECT setval(pg_get_serial_sequence('medidas_caseiras', 'id'), COALESCE(MAX(id), 1)) FROM medidas_caseiras;
+
+-- ==================== TABELAS AUXILIARES (criadas também automaticamente pelo app) ====================
+-- Rate limit compartilhado entre instâncias serverless
+CREATE TABLE IF NOT EXISTS rate_limits (
+    chave TEXT NOT NULL,
+    ts DOUBLE PRECISION NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_rate_limits_chave_ts ON rate_limits (chave, ts);
+
+-- Cache de respostas da IA
+CREATE TABLE IF NOT EXISTS ia_cache (
+    chave TEXT PRIMARY KEY,
+    resposta TEXT NOT NULL,
+    criado_em DOUBLE PRECISION NOT NULL
+);
+
+-- Bloqueia acesso pela API pública do Supabase (o app usa a conexão direta ao Postgres)
+ALTER TABLE rate_limits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ia_cache ENABLE ROW LEVEL SECURITY;

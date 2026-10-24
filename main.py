@@ -5,6 +5,7 @@ import re
 import uvicorn
 import time
 import hashlib
+import random
 from collections import defaultdict
 from datetime import datetime, date, timedelta
 from fastapi import FastAPI, HTTPException, Depends, Header, Request
@@ -37,22 +38,61 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 app = FastAPI(title="NutriIA - Calculadora Nutricional Inteligente")
 
-# Configuração de CORS para segurança e compatibilidade
+# Configuração de CORS: o front é servido pelo próprio app (mesma origem), então só liberamos
+# o domínio do app (APP_BASE_URL / Vercel) e localhost. Autenticação é via Bearer token (sem cookies).
+def _origens_permitidas() -> list:
+    origens = {"http://localhost:8000", "http://127.0.0.1:8000"}
+    for valor in (os.environ.get("APP_BASE_URL"), *os.environ.get("ALLOWED_ORIGINS", "").split(",")):
+        if valor and valor.strip():
+            origens.add(valor.strip().rstrip("/"))
+    for host in (os.environ.get("VERCEL_URL"), os.environ.get("VERCEL_PROJECT_PRODUCTION_URL"), os.environ.get("VERCEL_BRANCH_URL")):
+        if host:
+            origens.add(f"https://{host}")
+    return sorted(origens)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_origens_permitidas(),
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
-# Rate Limiter leve em memória para prevenir ataques e abusos
+# Rate limiter em duas camadas: memória (barato, por instância) + banco (compartilhado entre
+# instâncias serverless). A camada de banco só é usada quando DATABASE_URL está configurada
+# e quando `compartilhado=True` (auth e endpoints de IA), e falha "aberta" se o banco cair.
 RATE_LIMITS = defaultdict(list)
 
-def verificar_rate_limit(identificador: str, limite_requisicoes: int = 25, janela_segundos: int = 60):
+def _rate_limit_banco(identificador: str, limite: int, janela: int) -> bool:
+    """True = permitido. Usa a tabela rate_limits."""
+    try:
+        garantir_tabelas_auxiliares()
+        agora = time.time()
+        conn = get_db()
+        try:
+            conn.execute("DELETE FROM rate_limits WHERE chave = ? AND ts < ?", (identificador, agora - janela))
+            row = conn.execute("SELECT COUNT(*) AS n FROM rate_limits WHERE chave = ?", (identificador,)).fetchone()
+            if row["n"] >= limite:
+                conn.commit()
+                return False
+            conn.execute("INSERT INTO rate_limits (chave, ts) VALUES (?, ?)", (identificador, agora))
+            if random.random() < 0.02:  # limpeza ocasional de chaves antigas
+                conn.execute("DELETE FROM rate_limits WHERE ts < ?", (agora - 86400,))
+            conn.commit()
+            return True
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"[RATE LIMIT] Banco indisponível, usando só memória: {e}")
+        return True
+
+def verificar_rate_limit(identificador: str, limite_requisicoes: int = 25, janela_segundos: int = 60, compartilhado: bool = False):
     agora = time.time()
     RATE_LIMITS[identificador] = [t for t in RATE_LIMITS[identificador] if agora - t < janela_segundos]
-    if len(RATE_LIMITS[identificador]) >= limite_requisicoes:
+    excedeu = len(RATE_LIMITS[identificador]) >= limite_requisicoes
+    if not excedeu and compartilhado and os.environ.get("DATABASE_URL"):
+        excedeu = not _rate_limit_banco(identificador, limite_requisicoes, janela_segundos)
+    if excedeu:
         raise HTTPException(
             status_code=429,
             detail="Muitas requisições em curto período. Por favor, aguarde alguns instantes."
@@ -60,7 +100,8 @@ def verificar_rate_limit(identificador: str, limite_requisicoes: int = 25, janel
     RATE_LIMITS[identificador].append(agora)
 
 # ==================== BANCO DE DADOS ====================
-from db import get_db, init_db
+from db import get_db, init_db, garantir_tabelas_auxiliares
+from storage_service import salvar_avatar, storage_configurado
 
 init_db()
 
@@ -110,6 +151,11 @@ def obter_usuario_atual(authorization: Optional[str] = Header(None)) -> dict:
         return {"id": usuario_id, "nome": nome, "sexo": sexo}
     except JWTError:
         raise HTTPException(status_code=401, detail="Token inválido ou expirado. Faça login novamente.")
+
+def usuario_com_limite_ia(usuario: dict = Depends(obter_usuario_atual)) -> dict:
+    """Protege os endpoints que consomem IA (custo/abuso): 12 chamadas por minuto por usuário."""
+    verificar_rate_limit(f"ia_{usuario['id']}", limite_requisicoes=12, janela_segundos=60, compartilhado=True)
+    return usuario
 
 # ==================== MODELOS ====================
 
@@ -206,7 +252,7 @@ class AguaRequest(BaseModel):
 @app.post("/api/auth/registrar")
 def registrar(dados: RegistroRequest, request: Request):
     ip = request.client.host if request.client else "unknown"
-    verificar_rate_limit(f"reg_{ip}", limite_requisicoes=10, janela_segundos=60)
+    verificar_rate_limit(f"reg_{ip}", limite_requisicoes=10, janela_segundos=60, compartilhado=True)
 
     if len(dados.senha) < 6:
         raise HTTPException(status_code=400, detail="A senha deve ter pelo menos 6 caracteres.")
@@ -239,7 +285,7 @@ def registrar(dados: RegistroRequest, request: Request):
 @app.post("/api/auth/login")
 def login(dados: LoginRequest, request: Request):
     ip = request.client.host if request.client else "unknown"
-    verificar_rate_limit(f"login_{ip}", limite_requisicoes=15, janela_segundos=60)
+    verificar_rate_limit(f"login_{ip}", limite_requisicoes=15, janela_segundos=60, compartilhado=True)
 
     conn = get_db()
     try:
@@ -278,10 +324,10 @@ def _criar_token_reset(usuario_id: int, senha_hash: str) -> str:
 @app.post("/api/auth/recuperar-senha")
 def recuperar_senha(dados: RecuperarSenhaRequest, request: Request):
     ip = request.client.host if request.client else "unknown"
-    verificar_rate_limit(f"recup_{ip}", limite_requisicoes=5, janela_segundos=60)
+    verificar_rate_limit(f"recup_{ip}", limite_requisicoes=5, janela_segundos=60, compartilhado=True)
 
     email = dados.email.lower().strip()
-    verificar_rate_limit(f"recup_email_{email}", limite_requisicoes=3, janela_segundos=600)
+    verificar_rate_limit(f"recup_email_{email}", limite_requisicoes=3, janela_segundos=600, compartilhado=True)
 
     # Resposta sempre igual, exista o e-mail ou não (evita descobrir quem tem conta)
     resposta = {
@@ -309,7 +355,7 @@ def recuperar_senha(dados: RecuperarSenhaRequest, request: Request):
 @app.post("/api/auth/redefinir-senha")
 def redefinir_senha(dados: RedefinirSenhaRequest, request: Request):
     ip = request.client.host if request.client else "unknown"
-    verificar_rate_limit(f"redef_{ip}", limite_requisicoes=10, janela_segundos=60)
+    verificar_rate_limit(f"redef_{ip}", limite_requisicoes=10, janela_segundos=60, compartilhado=True)
 
     if len(dados.nova_senha) < 6:
         raise HTTPException(status_code=400, detail="A senha deve ter pelo menos 6 caracteres.")
@@ -363,12 +409,21 @@ def me(usuario: dict = Depends(obter_usuario_atual)):
             "SELECT * FROM perfis WHERE usuario_id = ?", (usuario["id"],)
         ).fetchone()
         
+        foto = user_db["foto_perfil"] if user_db else None
+        if foto and foto.startswith("data:") and storage_configurado():
+            # Migra fotos antigas (base64 no banco) para o Storage na primeira leitura
+            url = salvar_avatar(usuario["id"], foto)
+            if url:
+                conn.execute("UPDATE usuarios SET foto_perfil = ? WHERE id = ?", (url, usuario["id"]))
+                conn.commit()
+                foto = url
+
         novo_token = criar_token(usuario["id"], usuario["nome"])
         
         return {
             "id": usuario["id"],
             "nome": usuario["nome"],
-            "foto_perfil": user_db["foto_perfil"] if user_db else None,
+            "foto_perfil": foto,
             "perfil": dict(perfil) if perfil else None,
             "token": novo_token
         }
@@ -381,9 +436,12 @@ def me(usuario: dict = Depends(obter_usuario_atual)):
 def atualizar_foto(dados: FotoRequest, usuario: dict = Depends(obter_usuario_atual)):
     conn = get_db()
     try:
-        conn.execute("UPDATE usuarios SET foto_perfil = ? WHERE id = ?", (dados.foto_base64, usuario["id"]))
+        foto = dados.foto_base64
+        if storage_configurado() and foto.startswith("data:"):
+            foto = salvar_avatar(usuario["id"], foto) or foto  # se o Storage falhar, mantém o base64
+        conn.execute("UPDATE usuarios SET foto_perfil = ? WHERE id = ?", (foto, usuario["id"]))
         conn.commit()
-        return {"sucesso": True}
+        return {"sucesso": True, "foto_perfil": foto if not foto.startswith("data:") else None}
     finally:
         conn.close()
 
@@ -572,13 +630,22 @@ def salvar_refeicao_manual(dados: RefeicaoManualRequest, usuario: dict = Depends
             gord_100 = round((dados.gorduras_g or 0) * fator_100, 1)
             fibra_100 = round((dados.fibras_g or 0) * fator_100, 1)
 
-            # Grava na tabela alimentos do banco
+            # Grava na tabela alimentos do banco (fonte de verdade do aprendizado; o CSV é efêmero na Vercel)
             try:
-                c.execute('''
-                    INSERT INTO alimentos (nome, categoria, kcal_100g, proteinas_100g, carboidratos_100g, gorduras_100g, fibras_100g, unidade_referencia, fonte)
-                    VALUES (?, 'Personalizado', ?, ?, ?, ?, ?, 'g', 'Usuário')
-                ''', (nome_final, kcal_100, prot_100, carb_100, gord_100, fibra_100))
-                alimento_id = c.lastrowid
+                existente_alim = c.execute(
+                    "SELECT id FROM alimentos WHERE LOWER(nome) = LOWER(?) AND fonte = 'Usuário'", (nome_final,)
+                ).fetchone()
+                if existente_alim:
+                    alimento_id = existente_alim["id"]
+                    c.execute(
+                        "UPDATE alimentos SET kcal_100g = ?, proteinas_100g = ?, carboidratos_100g = ?, gorduras_100g = ?, fibras_100g = ? WHERE id = ?",
+                        (kcal_100, prot_100, carb_100, gord_100, fibra_100, alimento_id))
+                else:
+                    c.execute('''
+                        INSERT INTO alimentos (nome, categoria, kcal_100g, proteinas_100g, carboidratos_100g, gorduras_100g, fibras_100g, unidade_referencia, fonte)
+                        VALUES (?, 'Personalizado', ?, ?, ?, ?, ?, 'g', 'Usuário')
+                    ''', (nome_final, kcal_100, prot_100, carb_100, gord_100, fibra_100))
+                    alimento_id = c.lastrowid
                 if alimento_id and dados.unidade.lower() not in ("g", "ml"):
                     gramas_unitarias = peso_total_g / max(float(dados.quantidade), 1.0)
                     c.execute('''
@@ -608,9 +675,17 @@ def salvar_refeicao_manual(dados: RefeicaoManualRequest, usuario: dict = Depends
     finally:
         conn.close()
 
+def _sincronizar_base_aprendida():
+    """Traz do banco os alimentos ensinados por usuários (no máx. a cada 5 min por instância)."""
+    try:
+        base_alimentos.sincronizar_aprendidos(get_db)
+    except Exception as e:
+        print(f"[RAG] Não foi possível sincronizar alimentos aprendidos: {e}")
+
 @app.post("/api/nutricao/pre-analisar")
-def pre_analisar_refeicao(dados: RefeicaoRequest, usuario: dict = Depends(obter_usuario_atual)):
+def pre_analisar_refeicao(dados: RefeicaoRequest, usuario: dict = Depends(usuario_com_limite_ia)):
     """Analisa a refeição via RAG (base CSV + medidas caseiras) SEM salvar. O front confirma depois."""
+    _sincronizar_base_aprendida()
     if not (dados.descricao or "").strip() and not dados.foto_base64:
         raise HTTPException(status_code=400, detail="Descreva o que você comeu ou envie uma foto.")
     try:
@@ -625,8 +700,9 @@ def pre_analisar_refeicao(dados: RefeicaoRequest, usuario: dict = Depends(obter_
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/nutricao/analisar")
-def analisar_refeicao(dados: RefeicaoRequest, usuario: dict = Depends(obter_usuario_atual)):
+def analisar_refeicao(dados: RefeicaoRequest, usuario: dict = Depends(usuario_com_limite_ia)):
     """Analisa a refeição via RAG e já salva no diário."""
+    _sincronizar_base_aprendida()
     if not (dados.descricao or "").strip() and not dados.foto_base64:
         raise HTTPException(status_code=400, detail="Descreva o que você comeu ou envie uma foto.")
     try:
@@ -694,7 +770,7 @@ def analisar_refeicao(dados: RefeicaoRequest, usuario: dict = Depends(obter_usua
 # ==================== ROTAS EXERCÍCIO ====================
 
 @app.post("/api/exercicio/analisar")
-def analisar_exercicio(dados: ExercicioRequest, usuario: dict = Depends(obter_usuario_atual)):
+def analisar_exercicio(dados: ExercicioRequest, usuario: dict = Depends(usuario_com_limite_ia)):
     prompt = f"""
     Calcule o gasto energético deste exercício do paciente/aluno {usuario['nome']} (sexo: {usuario['sexo']}):
     - Atividade: {dados.descricao}
@@ -909,7 +985,7 @@ def resumo_semanal(usuario: dict = Depends(obter_usuario_atual)):
         conn.close()
 
 @app.get("/api/logs/analisar-dia/{data}")
-def analisar_dia(data: str, usuario: dict = Depends(obter_usuario_atual)):
+def analisar_dia(data: str, usuario: dict = Depends(usuario_com_limite_ia)):
     conn = get_db()
     try:
         # Obter perfil
@@ -1018,7 +1094,7 @@ def dica_do_dia(data: str, usuario: dict = Depends(obter_usuario_atual)):
         conn.close()
 
 @app.get("/api/logs/analisar-semana")
-def analisar_semana(usuario: dict = Depends(obter_usuario_atual)):
+def analisar_semana(usuario: dict = Depends(usuario_com_limite_ia)):
     conn = get_db()
     try:
         # Obter perfil
