@@ -1,0 +1,1867 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NutriIA — Nutrição Inteligente</title>
+    <link rel="icon" type="image/png" href="/static/img/icon.png?v=2">
+    <link rel="apple-touch-icon" href="/static/img/icon.png?v=2">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="description" content="NutriIA — Sua calculadora nutricional inteligente com IA Gemini">
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="stylesheet" href="/static/css/app.css?v=8">
+</head>
+
+<body>
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Modais de Edição/Exclusão -->
+    <div class="modal-overlay" id="modal-editar">
+        <div class="modal-content">
+            <div class="modal-title">Editar Registro</div>
+            <form id="form-editar" onsubmit="salvarEdicao(event)">
+                <input type="hidden" id="edit-id">
+                <div class="form-group">
+                    <label class="form-label">Descrição</label>
+                    <input type="text" id="edit-desc" class="form-input" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Calorias (kcal)</label>
+                        <input type="number" id="edit-calorias" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Proteínas (g)</label>
+                        <input type="number" id="edit-prot" class="form-input" step="0.1" value="0">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Carboidratos (g)</label>
+                        <input type="number" id="edit-carb" class="form-input" step="0.1" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Gorduras (g)</label>
+                        <input type="number" id="edit-gord" class="form-input" step="0.1" value="0">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <button type="button" class="btn btn-outline" onclick="fecharModalEdicao()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btn-salvar-edicao">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Detalhes com Dica da IA -->
+    <div class="modal-overlay" id="modal-detalhes">
+        <div class="modal-content">
+            <div class="modal-title" id="detalhes-titulo">Detalhes</div>
+            <div id="detalhes-desc" style="font-weight: 500; color: var(--text-primary);"></div>
+            <div class="detalhes-list" id="detalhes-macros"></div>
+            <div class="dica-box" id="detalhes-dica" style="display: none;">
+                <strong><span class="svg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+                            <path d="M7 2v20" />
+                            <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+                        </svg></span> Dica da IA</strong>
+                <span id="detalhes-dica-texto"></span>
+            </div>
+            <div style="margin-top: 20px;">
+                <button type="button" class="btn btn-primary" style="width: 100%"
+                    onclick="fecharModalDetalhes()">Fechar</button>
+            </div>
+        </div>
+    </div>
+    <!-- Modal Escaneamento Mágico -->
+    <div class="modal-overlay" id="modal-foto">
+        <div class="modal-content"
+            style="background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.5);">
+            <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+                <span class="svg-icon" style="color: var(--accent-lavender-text);"><svg viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path
+                            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                        <line x1="12" y1="22.08" x2="12" y2="12" />
+                    </svg></span>
+                Escaneamento Mágico
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Momento do dia</label>
+                <select id="refeicao-tipo-foto" class="form-input">
+                    <option value="Café da Manhã">Café da Manhã</option>
+                    <option value="Almoço">Almoço</option>
+                    <option value="Lanche da Tarde">Lanche da Tarde</option>
+                    <option value="Jantar">Jantar</option>
+                    <option value="Ceia/Lanche Noturno">Lanche Noturno</option>
+                </select>
+            </div>
+
+            <div class="form-group" style="text-align: center; margin-bottom: 15px;">
+                <input type="file" id="refeicao-foto" accept="image/*" capture="environment" style="display: none;"
+                    onchange="previewRefeicaoFoto(event)">
+                <div id="btn-tirar-foto" class="choice-card"
+                    style="border: 2px dashed var(--accent-lavender); padding: 30px 20px; justify-content: center; flex-direction: column;"
+                    onclick="document.getElementById('refeicao-foto').click()">
+                    <div style="font-size: 2rem; margin-bottom: 10px;"></div>
+                    <div style="font-weight: 500; color: var(--text-primary);">Toque para tirar foto</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);">ou escolha da galeria</div>
+                </div>
+
+                <div id="refeicao-foto-preview-container" style="display: none; margin-top: 10px; position: relative;">
+                    <img id="refeicao-foto-preview" src=""
+                        style="width: 100%; max-height: 250px; object-fit: cover; border-radius: var(--radius-md); box-shadow: var(--shadow-md);">
+                    <button type="button" onclick="removerRefeicaoFoto()"
+                        style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">✕</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Observação (Opcional)</label>
+                <textarea id="refeicao-desc-foto" class="form-input" style="min-height: 60px;"
+                    placeholder="Ex: Tem azeite na salada"></textarea>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button type="button" class="btn btn-outline" onclick="fecharModalFoto()">Cancelar</button>
+                <button type="button" class="btn"
+                    style="background: linear-gradient(135deg, #B8A9D4 0%, #7ECBA1 100%); color: white; border: none;"
+                    id="btn-enviar-foto" onclick="registrarRefeicao(event, true)">Analisar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Análise Geral -->
+    <div class="modal-overlay" id="modal-analise-geral">
+        <div class="modal-content">
+            <div class="modal-title" id="analise-geral-titulo">Análise Geral</div>
+            <div id="analise-geral-texto" style="font-weight: 500; color: var(--text-primary); margin-top: 10px; line-height: 1.5; max-height: 60vh; overflow-y: auto; padding-right: 5px;"></div>
+            <div style="margin-top: 20px;">
+                <button type="button" class="btn btn-primary" style="width: 100%"
+                    onclick="fecharModalAnaliseGeral()">Tentar melhorar (Fechar)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Registro Rápido -->
+    <div class="modal-overlay" id="modal-registro-rapido">
+        <div class="modal-content" style="max-height: 90vh; overflow-y: auto;">
+            <div class="modal-title" id="registro-rapido-titulo">Adicionar Refeição</div>
+            
+            <div id="registro-rapido-step1">
+                <div class="form-group">
+                    <label class="form-label">O que você comeu? <span style="font-size: 0.75rem; font-weight: normal; color: var(--text-tertiary);">(Seja breve para a IA não se perder)</span></label>
+                    <textarea id="registro-rapido-desc" class="form-input" placeholder="Ex: 2 ovos mexidos, pão francês e café sem açúcar" style="min-height: 80px;" maxlength="300"></textarea>
+                </div>
+
+                <!-- Alerta quando a IA falhar ou não identificar -->
+                <div id="registro-rapido-falha-ia" style="display: none; background: rgba(242, 140, 140, 0.12); border: 1px solid #F28C8C; border-radius: 12px; padding: 12px; margin-bottom: 15px;">
+                    <div style="font-size: 0.85rem; color: #d32f2f; font-weight: 600; margin-bottom: 6px;">
+                        ⚠️ A IA não conseguiu identificar ou você quer registrar direto?
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px;">
+                        Você pode digitar o alimento e as calorias manualmente. Os dados salvarão seu histórico e ensinarão a IA a reconhecer este alimento!
+                    </div>
+                    <button type="button" class="btn btn-outline" style="width: 100%; border-color: var(--accent-green); color: var(--accent-green); font-size: 0.85rem; padding: 8px 12px;" onclick="abrirRegistroManualStep()">
+                        ✍️ Preencher Manualmente &amp; Ensinar IA
+                    </button>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button type="button" class="btn btn-outline" onclick="fecharRegistroRapido()">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="analisarRegistroRapido()">Analisar com IA</button>
+                </div>
+
+                <div style="text-align: center; margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 12px;">
+                    <button type="button" style="background: none; border: none; color: var(--accent-green); font-size: 0.85rem; cursor: pointer; text-decoration: underline; font-weight: 500;" onclick="abrirRegistroManualStep()">
+                        ✍️ Prefere preencher manualmente? Clique aqui
+                    </button>
+                </div>
+            </div>
+
+            <div id="registro-rapido-step2" style="display: none;">
+                <div style="padding: 10px 0; margin-bottom: 15px;">
+                    <div style="font-size: 0.9rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;">REFEIÇÃO</div>
+                    <div id="registro-rapido-nome-refeicao" style="font-size: 1.4rem; font-weight: 700; color: var(--text-primary); margin-bottom: 15px;">Café da manhã</div>
+                    
+                    <div style="font-size: 2rem; font-weight: bold; color: var(--accent-green-dark); margin-bottom: 15px;">
+                        ≈ <span id="registro-rapido-kcal">0</span> kcal
+                    </div>
+                    
+                    <div style="font-size: 1rem; color: var(--text-secondary); margin-bottom: 20px;">
+                        Proteínas <span id="registro-rapido-p">0</span> g<br>
+                        Carboidratos <span id="registro-rapido-c">0</span> g<br>
+                        Gorduras <span id="registro-rapido-g">0</span> g
+                    </div>
+                    
+                    <div style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">Alimentos:</div>
+                    <ul id="registro-rapido-itens" style="font-size: 0.95rem; color: var(--text-secondary); margin-left: 0; padding-left: 20px; margin-bottom: 20px; line-height: 1.6;"></ul>
+                    
+                    <div style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">Dica:</div>
+                    <div id="registro-rapido-dica" style="font-size: 0.95rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 10px;"></div>
+                    <div style="font-size: 0.8rem; color: var(--text-tertiary); margin-bottom: 15px;">Confiança do cálculo: <span id="registro-rapido-confianca"></span></div>
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button type="button" class="btn btn-outline" style="flex: 1;" onclick="voltarRegistroRapido()">Corrigir</button>
+                    <button type="button" class="btn btn-outline" style="flex: 1; border-color: var(--accent-lavender); color: var(--accent-lavender);" onclick="abrirRegistroManualStep(true)">Preencher Manual</button>
+                    <button type="button" class="btn" style="background: var(--accent-green); color: white; border: none; font-weight: bold; flex: 2;" onclick="confirmarRegistroRapido()">Confirmar</button>
+                </div>
+            </div>
+
+            <!-- Step Manual: Quando a IA falha ou o usuário prefere preencher direto -->
+            <div id="registro-rapido-step-manual" style="display: none;">
+                <div style="background: rgba(126, 203, 161, 0.12); border-radius: 10px; padding: 10px 12px; margin-bottom: 15px; font-size: 0.82rem; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 1.2rem;">🧠</span>
+                    <span><strong>Aprendizado Ativo:</strong> Ao salvar, este alimento entrará na base de conhecimento e a IA saberá identificá-lo automaticamente!</span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Nome do Alimento *</label>
+                    <input type="text" id="manual-alimento" class="form-input" placeholder="Ex: Tapioca com frango desfiado, Barra de Cereal..." required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label">Quantidade *</label>
+                        <input type="number" id="manual-quantidade" class="form-input" value="1" min="0.1" step="any" required>
+                    </div>
+                    <div class="form-group" style="flex: 1.5;">
+                        <label class="form-label">Unidade *</label>
+                        <input type="text" id="manual-unidade" class="form-input" placeholder="ex: unidade, g, fatia, copo" list="unidades-sugestoes" value="unidade" required>
+                        <datalist id="unidades-sugestoes">
+                            <option value="unidade">
+                            <option value="g">
+                            <option value="ml">
+                            <option value="fatia">
+                            <option value="colher de sopa">
+                            <option value="colher de chá">
+                            <option value="xícara">
+                            <option value="copo">
+                            <option value="prato">
+                            <option value="porção">
+                        </datalist>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Total de Calorias (kcal) *</label>
+                    <input type="number" id="manual-calorias" class="form-input" placeholder="Ex: 250" min="0" step="1" required style="font-size: 1.1rem; font-weight: bold; color: var(--accent-green-dark);">
+                </div>
+
+                <div style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); margin: 10px 0 6px;">Macronutrientes (opcional):</div>
+                <div class="form-row">
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label" style="font-size: 0.75rem;">Proteínas (g)</label>
+                        <input type="number" id="manual-prot" class="form-input" placeholder="0" step="0.1" value="0">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label" style="font-size: 0.75rem;">Carboidratos (g)</label>
+                        <input type="number" id="manual-carb" class="form-input" placeholder="0" step="0.1" value="0">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label" style="font-size: 0.75rem;">Gorduras (g)</label>
+                        <input type="number" id="manual-gord" class="form-input" placeholder="0" step="0.1" value="0">
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 8px; margin: 14px 0 16px;">
+                    <input type="checkbox" id="manual-aprender" checked style="width: 18px; height: 18px; accent-color: var(--accent-green); cursor: pointer;">
+                    <label for="manual-aprender" style="font-size: 0.85rem; color: var(--text-primary); cursor: pointer; user-select: none;">
+                        Ensinar à IA para reconhecer nas próximas buscas
+                    </label>
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="btn btn-outline" onclick="voltarDoManual()">Voltar</button>
+                    <button type="button" class="btn btn-primary" style="flex: 1; background: var(--accent-green); border: none; font-weight: bold;" onclick="salvarRefeicaoManual()">Salvar &amp; Ensinar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Exercício -->
+    <div class="modal-overlay" id="modal-exercicio">
+        <div class="modal-content">
+            <div class="modal-title">Registrar Exercício</div>
+            <div class="form-group" style="margin-top: 10px;">
+                <label class="form-label">Exercício / Atividade</label>
+                <input type="text" id="modal-exercicio-desc" class="form-input" placeholder="Ex: Musculação, corrida, natação...">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Duração (min)</label>
+                    <input type="number" id="modal-exercicio-duracao" class="form-input" placeholder="50">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Intensidade</label>
+                    <select id="modal-exercicio-intensidade" class="form-input">
+                        <option value="Leve">Leve</option>
+                        <option value="Moderada" selected>Moderada</option>
+                        <option value="Alta/Vigorosa">Alta / Vigorosa</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button type="button" class="btn btn-outline" onclick="fecharModalExercicio()">Cancelar</button>
+                <button type="button" class="btn btn-peach" style="flex: 1;" onclick="registrarExercicioModal()">Calcular</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="magic-loading-overlay" class="magic-loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="magic-text-container">
+            <h2 id="magic-loading-text">Analisando dados...</h2>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL AGUA ==================== -->
+    <div id="modal-agua" class="modal-overlay">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                <span class="icon-agua" style="padding: 5px; border-radius: 8px;"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg></span> Hidratação
+            </h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.9rem;">Registre quanto você bebeu agora.</p>
+            
+            <div class="agua-presets">
+                <div class="agua-preset-btn" onclick="adicionarAguaRapido(250)">+250 ml</div>
+                <div class="agua-preset-btn" onclick="adicionarAguaRapido(500)">+500 ml</div>
+                <div class="agua-preset-btn" onclick="adicionarAguaRapido(1000)">+1 L</div>
+            </div>
+
+            <div class="form-group" style="margin-top: 15px;">
+                <label class="form-label">Ou digite (ml):</label>
+                <input type="number" id="input-agua-ml" class="form-input" placeholder="Ex: 300">
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button type="button" class="btn btn-outline" onclick="fecharModalAgua()">Cancelar</button>
+                <button type="button" class="btn btn-primary" style="flex: 1; background: var(--accent-blue);" onclick="salvarAguaManual()">Registrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== TELA AUTH ==================== -->
+    <div id="screen-auth" class="auth-screen screen active">
+        <div class="auth-logo">
+            <h1>Nutri<span>IA</span></h1>
+            <p>Nutrição inteligente com IA </p>
+        </div>
+        <div class="auth-card">
+            <div class="auth-tabs">
+                <button class="auth-tab active" onclick="trocarAuthTab('login')">Entrar</button>
+                <button class="auth-tab" onclick="trocarAuthTab('registrar')">Criar Conta</button>
+            </div>
+
+            <!-- Form Login -->
+            <form id="form-login" class="auth-form active" onsubmit="fazerLogin(event)">
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" id="login-email" class="form-input" placeholder="seu@email.com" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Senha</label>
+                    <input type="password" id="login-senha" class="form-input" placeholder="Sua senha" required>
+                </div>
+                <div style="text-align: right; margin-bottom: 15px;">
+                    <a href="#" onclick="trocarAuthTab('recuperar')" style="color: var(--accent-lavender); font-size: 0.85rem; text-decoration: none;">Esqueci minha senha</a>
+                </div>
+                <button type="submit" id="btn-login" class="btn btn-primary">Entrar</button>
+            </form>
+
+            <!-- Form Registro -->
+            <form id="form-registrar" class="auth-form" onsubmit="fazerRegistro(event)">
+                <div class="form-group">
+                    <label class="form-label">Nome</label>
+                    <input type="text" id="reg-nome" class="form-input" placeholder="Seu nome" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" id="reg-email" class="form-input" placeholder="seu@email.com" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Senha</label>
+                    <input type="password" id="reg-senha" class="form-input" placeholder="Mínimo 4 caracteres" required
+                        minlength="4">
+                </div>
+                <button type="submit" id="btn-registrar" class="btn btn-primary">Criar Conta</button>
+            </form>
+
+            <!-- Form Recuperar Senha -->
+            <form id="form-recuperar" class="auth-form" onsubmit="fazerRecuperacaoSenha(event)">
+                <div style="text-align: center; margin-bottom: 15px; color: var(--text-secondary); font-size: 0.9rem;">
+                    Insira seu email para gerarmos uma nova senha provisória.
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" id="rec-email" class="form-input" placeholder="seu@email.com" required>
+                </div>
+                <button type="submit" id="btn-recuperar" class="btn btn-primary" style="margin-bottom: 10px;">Gerar Nova Senha</button>
+                <div style="text-align: center;">
+                    <a href="#" onclick="trocarAuthTab('login')" style="color: var(--accent-lavender); font-size: 0.85rem; text-decoration: none;">Voltar para o Login</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== TELA HOME ==================== -->
+    <div id="screen-home" class="screen">
+        <div class="home-header">
+            <div class="home-greeting">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <h2>Olá, <span id="user-nome">Usuário</span> </h2>
+                        <p class="greeting-subtitle">Disciplina hoje, resultados amanhã.</p>
+                    </div>
+                    <div id="header-avatar" class="avatar-sm" onclick="navegar('perfil')">
+                        <span class="svg-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Meta Diária Card -->
+        <div class="meta-diaria-card">
+            <div class="meta-diaria-content">
+                <div class="meta-diaria-info">
+                    <div class="meta-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C12 2 15 5 15 10C15 11 14 12 14 12C14 12 16 10 16 10C18 12 18 15 18 15C18 18.3137 15.3137 21 12 21C8.68629 21 6 18.3137 6 15C6 11 12 2 12 2Z"/></svg></div>
+                    <div>
+                        <div class="meta-label">Meta diária</div>
+                        <div class="meta-value"><span id="home-meta">0</span> kcal</div>
+                        <div class="meta-label">objetivo</div>
+                    </div>
+                </div>
+                <div class="meta-circular-progress">
+                    <svg viewBox="0 0 36 36" class="circular-chart">
+                        <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle" id="home-circular-bar" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <text x="18" y="16" class="percentage" id="home-percentage">0%</text>
+                        <text x="18" y="24" class="percentage-label">concluído</text>
+                    </svg>
+                </div>
+            </div>
+            <div class="meta-linear-progress">
+                <div class="linear-bar-bg">
+                    <div class="linear-bar-fill" id="home-linear-bar" style="width: 0%;"></div>
+                </div>
+                <div class="restantes-text"><span id="home-restante">0</span> kcal restantes</div>
+            </div>
+        </div>
+
+        <!-- Ações Grid -->
+        <div class="home-actions-grid">
+            <button class="action-btn" onclick="abrirRegistroRapido('Refeição')">
+                <div class="action-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg></div>
+                <div class="action-label">Registrar<br>Refeição</div>
+            </button>
+            <button class="action-btn" onclick="abrirModalExercicio()">
+                <div class="action-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg></div>
+                <div class="action-label">Registrar<br>Exercício</div>
+            </button>
+            <button class="action-btn" onclick="abrirModalAgua()">
+                <div class="action-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg></div>
+                <div class="action-label">Hidratação</div>
+            </button>
+            <button class="action-btn" onclick="navegar('extrato')">
+                <div class="action-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg></div>
+                <div class="action-label">Meu Dia</div>
+            </button>
+        </div>
+
+        <!-- Hoje Section -->
+        <div class="hoje-section">
+            <div class="section-header">
+                <div class="section-title-wrap">
+                    <span class="calendar-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></span>
+                    <h3>Hoje</h3>
+                </div>
+                <a href="#" onclick="navegar('extrato')" class="ver-todos">Ver todos ></a>
+            </div>
+            
+            <div class="hoje-list">
+                <div class="hoje-item" onclick="navegar('extrato')">
+                    <div class="hoje-icon icon-refeicao"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg></div>
+                    <div class="hoje-details">
+                        <h4>Alimentação</h4>
+                        <p><span id="hoje-alimentacao-kcal">0</span> kcal registradas</p>
+                    </div>
+                    <div class="hoje-arrow">></div>
+                </div>
+                <div class="hoje-item" onclick="navegar('extrato')">
+                    <div class="hoje-icon icon-exercicio"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg></div>
+                    <div class="hoje-details">
+                        <h4>Exercícios</h4>
+                        <p><span id="hoje-exercicios-kcal">0</span> kcal queimadas</p>
+                    </div>
+                    <div class="hoje-arrow">></div>
+                </div>
+                <div class="hoje-item" onclick="abrirModalAgua()">
+                    <div class="hoje-icon icon-agua"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg></div>
+                    <div class="hoje-details">
+                        <h4>Água</h4>
+                        <p><span id="hoje-agua-ml">0</span> ml de 2.000 ml</p>
+                        <div class="agua-mini-bar-bg">
+                            <div class="agua-mini-bar-fill" id="hoje-agua-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                    <div class="hoje-arrow">></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dica do Dia -->
+        <div class="dica-card-new">
+            <div class="dica-header">
+                <span class="dica-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg></span>
+                <h3>Dica do dia</h3>
+            </div>
+            <p id="dica-do-dia-texto">Carregando dica clínica...</p>
+            <div class="leaf-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"></path><line x1="16" y1="8" x2="2" y2="22"></line><line x1="17.5" y1="15" x2="9" y2="15"></line></svg></div>
+        </div>
+
+        <!-- Progresso Bottom -->
+        <div class="progresso-bottom">
+            <div class="section-header">
+                <div class="section-title-wrap">
+                    <span class="stats-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg></span>
+                    <h3>Seu progresso</h3>
+                </div>
+                <a href="#" onclick="navegar('progresso')" class="ver-todos">Ver detalhes ></a>
+            </div>
+            <div class="progresso-grid">
+                <div class="prog-item">
+                    <div class="prog-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C12 2 15 5 15 10C15 11 14 12 14 12C14 12 16 10 16 10C18 12 18 15 18 15C18 18.3137 15.3137 21 12 21C8.68629 21 6 18.3137 6 15C6 11 12 2 12 2Z"/></svg></div>
+                    <h4 id="prog-bottom-meta">0</h4>
+                    <p>kcal objetivo</p>
+                </div>
+                <div class="prog-item">
+                    <div class="prog-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg></div>
+                    <h4 id="prog-bottom-peso">0,0 kg</h4>
+                    <p>peso atual</p>
+                </div>
+                <div class="prog-item">
+                    <div class="prog-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg></div>
+                    <h4 id="prog-bottom-agua">0 ml</h4>
+                    <p>água hoje</p>
+                </div>
+            </div>
+        </div>
+        <div style="height: 100px;"></div> <!-- Spacing for bottom nav -->
+    </div>
+
+    <!-- Tela Registrar removida - fluxo unificado na Home -->
+
+    <!-- ==================== TELA EXTRATO ==================== -->
+    <div id="screen-extrato" class="screen">
+        <div class="app-header">
+            <div class="greeting">Extrato do Dia</div>
+            <div class="date-nav">
+                <button class="date-btn" onclick="mudarData(-1)">&#8592;</button>
+                <div class="date-display" id="data-display-extrato">Hoje</div>
+                <button class="date-btn" onclick="mudarData(1)">&#8594;</button>
+            </div>
+        </div>
+        <div style="height: 20px;"></div>
+        <div class="log-list" id="extrato-logs">
+            <div class="empty-state">
+                <div class="empty-icon"><span class="svg-icon"><svg viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                            <line x1="16" y1="2" x2="16" y2="6" />
+                            <line x1="8" y1="2" x2="8" y2="6" />
+                            <line x1="3" y1="10" x2="21" y2="10" />
+                        </svg></span></div>
+                <p>Nenhum registro selecionado.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== TELA PROGRESSO ==================== -->
+    <div id="screen-progresso" class="screen">
+        <div class="app-header">
+            <div class="greeting">Progresso Semanal</div>
+            <div class="greeting-sub">Média e histórico dos últimos 7 dias</div>
+        </div>
+        <div style="height: 20px;"></div>
+        <div id="progresso-lista">
+            <div class="empty-state">
+                <div class="spinner"></div>
+            </div>
+        </div>
+
+        <div style="margin: 20px 0;">
+            <button class="btn" style="width: 100%; background: linear-gradient(135deg, #B8A9D4 0%, #7ECBA1 100%); color: white; border: none; padding: 12px; font-weight: bold; border-radius: 12px; box-shadow: var(--shadow-sm);" onclick="analisarSemana()">
+                 Analisar a Semana Inteira
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== TELA PERFIL ==================== -->
+    <div id="screen-perfil" class="screen">
+        <div class="profile-header">
+            <div class="avatar" id="avatar-emoji" onclick="document.getElementById('input-foto').click()"
+                style="color: var(--accent-lavender)">
+                <span class="svg-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                    </svg></span>
+            </div>
+            <input type="file" id="input-foto" accept="image/*" style="display: none;" onchange="uploadFoto(event)">
+            <div class="profile-name" id="profile-nome">Usuário</div>
+            <div class="profile-email" id="profile-email">—</div>
+        </div>
+
+        <div class="profile-section">
+            <div class="section-title" style="padding: 0; margin-bottom: 12px;">Dados Corporais</div>
+            <div class="form-card">
+                <form id="form-perfil" onsubmit="salvarPerfil(event)">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Peso (kg)</label>
+                            <input type="number" id="peso" step="0.1" class="form-input" required placeholder="70">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Altura (cm)</label>
+                            <input type="number" id="altura" class="form-input" required placeholder="175">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Idade</label>
+                            <input type="number" id="idade" class="form-input" required placeholder="25">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Sexo</label>
+                            <select id="sexo" class="form-input">
+                                <option value="masculino">Masculino</option>
+                                <option value="feminino">Feminino</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nível de Atividade</label>
+                        <select id="atividade" class="form-input">
+                            <option value="1.2">Sedentário</option>
+                            <option value="1.375">Leve (1-3x/semana)</option>
+                            <option value="1.55">Moderado (3-5x/semana)</option>
+                            <option value="1.725">Intenso (6-7x/semana)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Objetivo</label>
+                        <select id="objetivo" class="form-input">
+                            <option value="perda">Perder Gordura (-500 kcal)</option>
+                            <option value="manutencao">Manter Peso</option>
+                            <option value="ganho">Ganhar Massa (+400 kcal)</option>
+                        </select>
+                    </div>
+                    <button type="submit" id="btn-perfil" class="btn btn-primary">Salvar Perfil</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="profile-section">
+            <div class="section-title" style="padding: 0; margin-bottom: 12px;">Alterar Senha</div>
+            <div class="form-card">
+                <form id="form-alterar-senha" onsubmit="fazerAlteracaoSenha(event)">
+                    <div class="form-group">
+                        <label class="form-label">Senha Atual</label>
+                        <input type="password" id="senha-atual" class="form-input" required placeholder="Digite sua senha atual">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nova Senha</label>
+                        <input type="password" id="nova-senha" class="form-input" required placeholder="Mínimo 4 caracteres" minlength="4">
+                    </div>
+                    <button type="submit" id="btn-alterar-senha" class="btn btn-outline" style="width: 100%; border-color: var(--accent-lavender); color: var(--accent-lavender);">Salvar Nova Senha</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Resultados do Perfil -->
+        <div class="profile-section" id="perfil-resultados" style="display: none;">
+            <div class="section-title" style="padding: 0; margin-bottom: 12px;">Seus Resultados</div>
+            <div class="profile-card">
+                <div class="profile-stat-row">
+                    <span class="profile-stat-label">IMC</span>
+                    <span class="profile-stat-value" id="res-imc">—</span>
+                </div>
+                <div class="profile-stat-row">
+                    <span class="profile-stat-label">Taxa Metabólica Basal</span>
+                    <span class="profile-stat-value" id="res-tmb">—</span>
+                </div>
+                <div class="profile-stat-row">
+                    <span class="profile-stat-label">Meta Calórica Diária</span>
+                    <span class="profile-stat-value" id="res-meta" style="color: var(--accent-lavender);">—</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="profile-section" style="margin-top: 12px;">
+            <button class="btn btn-outline" onclick="fazerLogout()">Sair da Conta</button>
+        </div>
+    </div>
+
+    <!-- ==================== BOTTOM NAVIGATION ==================== -->
+    <nav class="bottom-nav" id="bottom-nav" style="display: none;">
+        <button class="nav-item active" onclick="navegar('home')" data-tab="home">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+            <span>Home</span>
+        </button>
+
+        <button class="nav-item" onclick="navegar('extrato')" data-tab="extrato">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+            </svg>
+            <span>Extrato</span>
+        </button>
+        <button class="nav-item" onclick="navegar('progresso')" data-tab="progresso">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            </svg>
+            <span>Progresso</span>
+        </button>
+        <button class="nav-item" onclick="navegar('perfil')" data-tab="perfil">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+            </svg>
+            <span>Perfil</span>
+        </button>
+    </nav>
+
+    <!-- ==================== JAVASCRIPT ==================== -->
+    <script>
+        // ==================== STATE ====================
+        function getHojeISO() {
+            const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+            return (new Date(Date.now() - tzoffset)).toISOString().split('T')[0];
+        }
+
+        let state = {
+            token: localStorage.getItem("nutriia_token") || null,
+            nome: localStorage.getItem("nutriia_nome") || "",
+            metaDiaria: 2000,
+            consumidas: 0,
+            gastas: 0,
+            prot: 0,
+            carb: 0,
+            gord: 0,
+            perfil: null,
+            dataAtual: getHojeISO()
+        };
+
+        // ==================== API HELPERS ====================
+        function authHeaders() {
+            return {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${state.token}`
+            };
+        }
+
+        async function handleResponse(res) {
+            const isJson = res.headers.get("content-type")?.includes("application/json");
+            const data = isJson ? await res.json() : null;
+            if (!res.ok) {
+                if (res.status === 401) {
+                    fazerLogout();
+                    throw new Error("Sessão expirada. Faça login novamente.");
+                }
+                throw new Error(data?.detail || "Erro na requisição");
+            }
+            return data;
+        }
+
+        async function apiPost(url, body) {
+            const res = await fetch(url, {
+                method: "POST",
+                headers: authHeaders(),
+                body: JSON.stringify(body)
+            });
+            return handleResponse(res);
+        }
+
+        async function apiGet(url) {
+            const res = await fetch(url, { headers: authHeaders() });
+            return handleResponse(res);
+        }
+
+        async function apiPut(url, body) {
+            const res = await fetch(url, {
+                method: "PUT",
+                headers: authHeaders(),
+                body: JSON.stringify(body)
+            });
+            return handleResponse(res);
+        }
+
+        async function apiDelete(url) {
+            const res = await fetch(url, { method: "DELETE", headers: authHeaders() });
+            return handleResponse(res);
+        }
+
+        // ==================== SEGURANÇA & ESCAPE ====================
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return "";
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // ==================== TOAST ====================
+        function toast(msg, tipo = "success") {
+            const container = document.getElementById("toast-container");
+            const div = document.createElement("div");
+            div.className = `toast ${tipo === "error" ? "toast-error" : ""}`;
+            div.innerHTML = `<span class="toast-icon">${tipo === "error" ? "" : ""}</span><span>${escapeHtml(msg)}</span>`;
+            container.appendChild(div);
+            setTimeout(() => div.remove(), 3500);
+        }
+
+        // ==================== NAVEGAÇÃO ====================
+        function formatarDataDisplay(iso) {
+            if (iso === getHojeISO()) return "Hoje";
+            const partes = iso.split('-');
+            return `${partes[2]}/${partes[1]}/${partes[0]}`;
+        }
+
+        async function mudarData(delta) {
+            const dt = new Date(state.dataAtual + 'T12:00:00Z');
+            dt.setDate(dt.getDate() + delta);
+            state.dataAtual = dt.toISOString().split('T')[0];
+
+            const displayStr = formatarDataDisplay(state.dataAtual);
+            const elExtrato = document.getElementById("data-display-extrato");
+            if (elExtrato) elExtrato.textContent = displayStr;
+
+            await carregarLogsDoDia();
+        }
+
+        function navegar(tab) {
+            document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+            document.getElementById(`screen-${tab}`).classList.add("active");
+
+            document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+            const navBtn = document.querySelector(`.nav-item[data-tab="${tab}"]`);
+            if (navBtn) navBtn.classList.add("active");
+
+            if (tab === "extrato") renderizarExtrato();
+            if (tab === "progresso") carregarProgresso();
+        }
+
+
+
+        // ==================== AUTH ====================
+        function trocarAuthTab(tab) {
+            document.querySelectorAll(".auth-tab").forEach(t => t.classList.remove("active"));
+            document.querySelectorAll(".auth-form").forEach(f => f.classList.remove("active"));
+
+            if (tab === "login") {
+                document.querySelectorAll(".auth-tab")[0].classList.add("active");
+                document.getElementById("form-login").classList.add("active");
+            } else if (tab === "registrar") {
+                document.querySelectorAll(".auth-tab")[1].classList.add("active");
+                document.getElementById("form-registrar").classList.add("active");
+            } else if (tab === "recuperar") {
+                document.getElementById("form-recuperar").classList.add("active");
+            }
+        }
+
+        async function fazerLogin(e) {
+            e.preventDefault();
+            const btn = document.getElementById("btn-login");
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>';
+
+            try {
+                const data = await fetch("/api/auth/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        email: document.getElementById("login-email").value,
+                        senha: document.getElementById("login-senha").value
+                    })
+                }).then(r => r.json().then(d => { if (!r.ok) throw new Error(d.detail); return d; }));
+
+                state.token = data.token;
+                state.nome = data.nome;
+                localStorage.setItem("nutriia_token", data.token);
+                localStorage.setItem("nutriia_nome", data.nome);
+
+                await inicializarApp();
+                toast(`Bem-vindo de volta, ${data.nome}!`);
+            } catch (err) {
+                toast(err.message, "error");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Entrar";
+            }
+        }
+
+        async function fazerRegistro(e) {
+            e.preventDefault();
+            const btn = document.getElementById("btn-registrar");
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>';
+
+            try {
+                const data = await fetch("/api/auth/registrar", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        nome: document.getElementById("reg-nome").value,
+                        email: document.getElementById("reg-email").value,
+                        senha: document.getElementById("reg-senha").value
+                    })
+                }).then(r => r.json().then(d => { if (!r.ok) throw new Error(d.detail); return d; }));
+
+                state.token = data.token;
+                state.nome = data.nome;
+                localStorage.setItem("nutriia_token", data.token);
+                localStorage.setItem("nutriia_nome", data.nome);
+
+                await inicializarApp();
+                toast(`Conta criada! Bem-vindo, ${data.nome}! `);
+                // Ir para perfil para configurar dados
+                navegar("perfil");
+            } catch (err) {
+                toast(err.message, "error");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Criar Conta";
+            }
+        }
+
+        async function fazerRecuperacaoSenha(e) {
+            e.preventDefault();
+            const btn = document.getElementById("btn-recuperar");
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>';
+
+            try {
+                const data = await fetch("/api/auth/recuperar-senha", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: document.getElementById("rec-email").value })
+                }).then(r => r.json().then(d => { if (!r.ok) throw new Error(d.detail); return d; }));
+
+                if (data.nova_senha) {
+                    alert(`Senha resetada com sucesso!\n\nSua nova senha é: ${data.nova_senha}\n\nPor favor, faça login com ela e vá no Perfil para alterá-la para uma de sua preferência.`);
+                    document.getElementById("login-senha").value = data.nova_senha;
+                } else {
+                    alert(data.mensagem || "Solicitação de recuperação processada. Verifique as orientações no terminal do servidor por segurança.");
+                    document.getElementById("login-senha").value = "";
+                }
+                trocarAuthTab('login');
+                document.getElementById("login-email").value = document.getElementById("rec-email").value;
+            } catch (err) {
+                toast(err.message, "error");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Gerar Nova Senha";
+            }
+        }
+
+        async function fazerAlteracaoSenha(e) {
+            e.preventDefault();
+            const btn = document.getElementById("btn-alterar-senha");
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner" style="border-color: var(--accent-lavender); border-top-color: transparent;"></span>';
+
+            try {
+                await apiPost("/api/auth/alterar-senha", {
+                    senha_atual: document.getElementById("senha-atual").value,
+                    nova_senha: document.getElementById("nova-senha").value
+                });
+                toast("Senha alterada com sucesso!");
+                document.getElementById("form-alterar-senha").reset();
+            } catch (err) {
+                toast(err.message, "error");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Salvar Nova Senha";
+            }
+        }
+
+        function fazerLogout() {
+            state.token = null;
+            state.nome = "";
+            localStorage.removeItem("nutriia_token");
+            localStorage.removeItem("nutriia_nome");
+            document.getElementById("bottom-nav").style.display = "none";
+            document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+            document.getElementById("screen-auth").classList.add("active");
+        }
+
+        // ==================== APP INIT ====================
+        async function inicializarApp() {
+            try {
+                const me = await apiGet("/api/auth/me");
+                if (me.token) {
+                    state.token = me.token;
+                    localStorage.setItem("nutriia_token", me.token);
+                }
+                state.nome = me.nome;
+                state.perfil = me.perfil;
+
+                document.getElementById("user-nome").textContent = me.nome;
+                document.getElementById("profile-nome").textContent = me.nome;
+
+                if (me.foto_perfil) {
+                    const imgHtml = `<img src="${me.foto_perfil}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; object-position: center;">`;
+                    document.getElementById("avatar-emoji").innerHTML = imgHtml;
+                    if (document.getElementById("header-avatar")) document.getElementById("header-avatar").innerHTML = imgHtml;
+                } else {
+                    const letra = me.nome.charAt(0).toUpperCase();
+                    document.getElementById("avatar-emoji").textContent = letra;
+                    if (document.getElementById("header-avatar")) document.getElementById("header-avatar").textContent = letra;
+                }
+
+                if (me.perfil) {
+                    preencherFormPerfil(me.perfil);
+                    state.metaDiaria = me.perfil.meta_calorica || 2000;
+                    exibirResultadosPerfil(me.perfil);
+                }
+
+                // Carregar logs do dia
+                await carregarLogsDoDia();
+
+                // Carregar dica do dia (apenas na inicialização)
+                const elDica = document.getElementById("dica-do-dia-texto");
+                if (elDica) {
+                    apiGet(`/api/logs/dica-do-dia/${state.dataAtual}`).then(res => {
+                        elDica.textContent = `"${res.dica}"`;
+                    }).catch(() => {
+                        elDica.textContent = `"Seja constante. O que você faz hoje constrói o resultado de amanhã."`;
+                    });
+                }
+
+                // Mostrar app
+                document.getElementById("screen-auth").classList.remove("active");
+                document.getElementById("bottom-nav").style.display = "flex";
+                navegar("home");
+            } catch (err) {
+                fazerLogout();
+            }
+        }
+
+        function preencherFormPerfil(p) {
+            if (p.peso_kg) document.getElementById("peso").value = p.peso_kg;
+            if (p.altura_cm) document.getElementById("altura").value = p.altura_cm;
+            if (p.idade) document.getElementById("idade").value = p.idade;
+            if (p.sexo) document.getElementById("sexo").value = p.sexo;
+            if (p.nivel_atividade) document.getElementById("atividade").value = p.nivel_atividade;
+            if (p.objetivo) document.getElementById("objetivo").value = p.objetivo;
+        }
+
+        function exibirResultadosPerfil(p) {
+            if (p.imc) {
+                document.getElementById("perfil-resultados").style.display = "block";
+                document.getElementById("res-imc").textContent = p.imc;
+                document.getElementById("res-tmb").textContent = `${p.tmb} kcal`;
+                document.getElementById("res-meta").textContent = `${p.meta_calorica} kcal`;
+            }
+        }
+
+        // ==================== DASHBOARD ====================
+        function atualizarDashboard() {
+            const meta = Math.round(state.metaDiaria);
+            const consumidas = Math.round(state.consumidas);
+            const gastas = Math.round(state.gastas);
+            const saldo = meta - consumidas + gastas;
+
+            document.getElementById("home-meta").textContent = `${meta}`;
+            document.getElementById("home-restante").textContent = `${saldo}`;
+            
+            // Circular progress
+            const metaTotal = meta + gastas;
+            const porcentagem = metaTotal > 0 ? Math.min(consumidas / metaTotal, 1) : 0;
+            const percCirc = document.getElementById("home-percentage");
+            if (percCirc) percCirc.textContent = `${Math.round(porcentagem * 100)}%`;
+            
+            const circleBar = document.getElementById("home-circular-bar");
+            if (circleBar) {
+                circleBar.setAttribute("stroke-dasharray", `${porcentagem * 100}, 100`);
+            }
+            
+            const linearBar = document.getElementById("home-linear-bar");
+            if (linearBar) {
+                linearBar.style.width = `${porcentagem * 100}%`;
+                if (consumidas > metaTotal) {
+                    linearBar.style.background = "#F28C8C"; // Redish if over
+                } else {
+                    linearBar.style.background = "#20B286"; // Teal
+                }
+            }
+
+            // Hoje List
+            if (document.getElementById("hoje-alimentacao-kcal")) document.getElementById("hoje-alimentacao-kcal").textContent = consumidas;
+            if (document.getElementById("hoje-exercicios-kcal")) document.getElementById("hoje-exercicios-kcal").textContent = gastas;
+            
+            // Agua List
+            const aguaMeta = 2000;
+            const agua = state.agua || 0;
+            const aguaPerc = Math.min(agua / aguaMeta, 1) * 100;
+            
+            if (document.getElementById("hoje-agua-ml")) document.getElementById("hoje-agua-ml").textContent = agua;
+            if (document.getElementById("hoje-agua-fill")) document.getElementById("hoje-agua-fill").style.width = `${aguaPerc}%`;
+            
+            // Progresso Bottom
+            if (document.getElementById("prog-bottom-meta")) document.getElementById("prog-bottom-meta").textContent = meta;
+            if (document.getElementById("prog-bottom-peso")) document.getElementById("prog-bottom-peso").textContent = `${state.perfil ? state.perfil.peso_kg || 0 : 0} kg`;
+            if (document.getElementById("prog-bottom-agua")) document.getElementById("prog-bottom-agua").textContent = `${agua} ml`;
+        }
+
+        // ==================== LOGS ====================
+        let logsHoje = [];
+
+        async function carregarLogsDoDia() {
+            try {
+                logsHoje = await apiGet(`/api/logs/data/${state.dataAtual}`);
+                const aguaRes = await apiGet(`/api/agua/${state.dataAtual}`).catch(() => ({ total_ml: 0 }));
+
+                state.consumidas = 0;
+                state.gastas = 0;
+                state.prot = 0;
+                state.carb = 0;
+                state.gord = 0;
+                state.agua = aguaRes.total_ml || 0;
+
+                logsHoje.forEach(log => {
+                    if (log.tipo === "refeicao") {
+                        state.consumidas += log.calorias;
+                        state.prot += (log.proteinas_g || 0);
+                        state.carb += (log.carboidratos_g || 0);
+                        state.gord += (log.gorduras_g || 0);
+                    } else if (log.tipo === "exercicio") {
+                        state.gastas += log.calorias;
+                    }
+                });
+
+                atualizarDashboard();
+
+                if (document.getElementById("screen-extrato").classList.contains("active")) {
+                    renderizarExtrato();
+                }
+            } catch (err) {
+                console.error("Erro ao carregar logs:", err);
+            }
+        }
+
+        function abrirModalDetalhes(id) {
+            const log = logsHoje.find(l => l.id === id);
+            if (!log) return;
+
+            document.getElementById("detalhes-titulo").textContent = log.tag;
+            document.getElementById("detalhes-desc").textContent = log.descricao;
+
+            let html = `
+                <div class="detalhes-item"><span>Calorias</span><strong style="color: var(--accent-${log.cor})">${log.titulo}</strong></div>
+            `;
+            if (log.tipo === "refeicao") {
+                html += `
+                    <div class="detalhes-item"><span>Proteínas</span><strong>${log.proteinas_g}g</strong></div>
+                    <div class="detalhes-item"><span>Carboidratos</span><strong>${log.carboidratos_g}g</strong></div>
+                    <div class="detalhes-item"><span>Gorduras</span><strong>${log.gorduras_g}g</strong></div>
+                `;
+            } else {
+                html += `<div class="detalhes-item"><span>Detalhes</span><strong>${log.detalhes}</strong></div>`;
+            }
+            document.getElementById("detalhes-macros").innerHTML = html;
+
+            const dicaEl = document.getElementById("detalhes-dica");
+            if (log.dica_ia) {
+                document.getElementById("detalhes-dica-texto").textContent = log.dica_ia;
+                dicaEl.style.display = "block";
+            } else {
+                dicaEl.style.display = "none";
+            }
+
+            document.getElementById("modal-detalhes").classList.add("active");
+        }
+
+        function fecharModalDetalhes() {
+            document.getElementById("modal-detalhes").classList.remove("active");
+        }
+
+        function criarCardLog(log, showActions = false) {
+            const isRefeicao = log.tipo === "refeicao";
+            const cor = isRefeicao ? "green" : "orange";
+
+            let actionsHtml = "";
+            if (showActions) {
+                actionsHtml = `
+                    <div class="log-actions">
+                        <button class="btn-icon" onclick="event.stopPropagation(); abrirModalEdicao(${log.id})"><span class="svg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span></button>
+                        <button class="btn-icon" onclick="event.stopPropagation(); excluirLog(${log.id})"><span class="svg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span></button>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="log-card" onclick="abrirModalDetalhes(${log.id})">
+                    <div class="log-card-left">
+                        <span class="log-tag log-tag-${cor}">${escapeHtml(log.tag)}</span>
+                        <div class="log-desc">${escapeHtml(log.descricao)}</div>
+                        <div class="log-details">${escapeHtml(log.detalhes)}</div>
+                        ${actionsHtml}
+                    </div>
+                    <div class="log-kcal log-kcal-${cor}">${escapeHtml(log.titulo)}</div>
+                </div>
+            `;
+        }
+
+
+        function renderizarExtrato() {
+            const container = document.getElementById("extrato-logs");
+            if (logsHoje.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon"><span class="svg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span></div>
+                        <p>Nenhum registro para esta data.</p>
+                    </div>
+                `;
+                return;
+            }
+            container.innerHTML = logsHoje.map(l => criarCardLog(l, true)).join("");
+        }
+
+        // ==================== LOADING UX ====================
+        function mostrarLoadingMagico() {
+            const overlay = document.getElementById("magic-loading-overlay");
+            const textEl = document.getElementById("magic-loading-text");
+            overlay.classList.add("active");
+            textEl.innerText = "Analisando dados...";
+        }
+
+        function esconderLoadingMagico() {
+            const overlay = document.getElementById("magic-loading-overlay");
+            overlay.classList.remove("active");
+        }
+
+        function abrirModalFoto() {
+            document.getElementById("modal-foto").classList.add("active");
+        }
+
+        function fecharModalFoto() {
+            document.getElementById("modal-foto").classList.remove("active");
+            removerRefeicaoFoto();
+            document.getElementById("refeicao-desc-foto").value = "";
+        }
+
+        function abrirFormManual() {
+            document.getElementById("refeicao-escolha-container").style.display = "none";
+            document.getElementById("form-refeicao-manual").style.display = "block";
+        }
+
+        function voltarEscolhaRefeicao() {
+            const container = document.getElementById("refeicao-escolha-container");
+            if (container) container.style.display = "block";
+
+            const form = document.getElementById("form-refeicao-manual");
+            if (form && container) form.style.display = "none";
+        }
+
+        // ==================== FOTO REFEIÇÃO ====================
+        let refeicaoFotoBase64 = null;
+
+        function removerRefeicaoFoto() {
+            refeicaoFotoBase64 = null;
+            document.getElementById("refeicao-foto").value = "";
+            document.getElementById("refeicao-foto-preview-container").style.display = "none";
+            document.getElementById("btn-tirar-foto").style.display = "flex";
+        }
+
+        function previewRefeicaoFoto(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (event) {
+                const img = new Image();
+                img.onload = function () {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 800;
+                    const MAX_HEIGHT = 800;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    refeicaoFotoBase64 = canvas.toDataURL('image/jpeg', 0.8);
+
+                    document.getElementById("refeicao-foto-preview").src = refeicaoFotoBase64;
+                    document.getElementById("btn-tirar-foto").style.display = "none";
+                    document.getElementById("refeicao-foto-preview-container").style.display = "block";
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // ==================== REGISTRO RÁPIDO & ÁGUA ====================
+        let registroRapidoAtual = null;
+        let tipoRefeicaoAtual = null;
+
+        function abrirRegistroRapido(tipo) {
+            tipoRefeicaoAtual = tipo;
+            document.getElementById("registro-rapido-titulo").textContent = `Adicionar ${tipo}`;
+            document.getElementById("registro-rapido-desc").value = "";
+            document.getElementById("registro-rapido-step1").style.display = "block";
+            document.getElementById("registro-rapido-step2").style.display = "none";
+            document.getElementById("registro-rapido-step-manual").style.display = "none";
+            const boxFalha = document.getElementById("registro-rapido-falha-ia");
+            if (boxFalha) boxFalha.style.display = "none";
+
+            // Limpar campos manuais
+            document.getElementById("manual-alimento").value = "";
+            document.getElementById("manual-quantidade").value = "1";
+            document.getElementById("manual-unidade").value = "unidade";
+            document.getElementById("manual-calorias").value = "";
+            document.getElementById("manual-prot").value = "0";
+            document.getElementById("manual-carb").value = "0";
+            document.getElementById("manual-gord").value = "0";
+            document.getElementById("manual-aprender").checked = true;
+
+            document.getElementById("modal-registro-rapido").classList.add("active");
+        }
+
+        function fecharRegistroRapido() {
+            document.getElementById("modal-registro-rapido").classList.remove("active");
+            registroRapidoAtual = null;
+        }
+
+        function abrirRegistroManualStep(vindoDoStep2 = false) {
+            document.getElementById("registro-rapido-step1").style.display = "none";
+            document.getElementById("registro-rapido-step2").style.display = "none";
+            document.getElementById("registro-rapido-step-manual").style.display = "block";
+
+            const desc = (document.getElementById("registro-rapido-desc").value || "").trim();
+            const inputAlimento = document.getElementById("manual-alimento");
+            if (!inputAlimento.value && desc) {
+                inputAlimento.value = desc;
+            }
+
+            if (vindoDoStep2 && registroRapidoAtual) {
+                if (registroRapidoAtual.itens_detalhados && registroRapidoAtual.itens_detalhados.length > 0) {
+                    inputAlimento.value = registroRapidoAtual.itens_detalhados[0].nome || desc;
+                    document.getElementById("manual-quantidade").value = registroRapidoAtual.itens_detalhados[0].quantidade_original || 1;
+                    document.getElementById("manual-unidade").value = registroRapidoAtual.itens_detalhados[0].unidade_original || "unidade";
+                }
+                if (registroRapidoAtual.total_kcal) {
+                    document.getElementById("manual-calorias").value = registroRapidoAtual.total_kcal;
+                }
+                if (registroRapidoAtual.proteinas_g !== undefined) document.getElementById("manual-prot").value = registroRapidoAtual.proteinas_g;
+                if (registroRapidoAtual.carboidratos_g !== undefined) document.getElementById("manual-carb").value = registroRapidoAtual.carboidratos_g;
+                if (registroRapidoAtual.gorduras_g !== undefined) document.getElementById("manual-gord").value = registroRapidoAtual.gorduras_g;
+            }
+        }
+
+        function voltarDoManual() {
+            document.getElementById("registro-rapido-step-manual").style.display = "none";
+            document.getElementById("registro-rapido-step1").style.display = "block";
+        }
+
+        async function salvarRefeicaoManual() {
+            const alimento = (document.getElementById("manual-alimento").value || "").trim();
+            const quantidade = parseFloat(document.getElementById("manual-quantidade").value) || 1;
+            const unidade = (document.getElementById("manual-unidade").value || "").trim() || "unidade";
+            const calorias = parseFloat(document.getElementById("manual-calorias").value);
+            const proteinas_g = parseFloat(document.getElementById("manual-prot").value) || 0;
+            const carboidratos_g = parseFloat(document.getElementById("manual-carb").value) || 0;
+            const gorduras_g = parseFloat(document.getElementById("manual-gord").value) || 0;
+            const aprender = document.getElementById("manual-aprender").checked;
+
+            if (!alimento) {
+                toast("Informe o nome do alimento", "error");
+                return;
+            }
+            if (isNaN(calorias) || calorias < 0) {
+                toast("Informe o valor de calorias (kcal)", "error");
+                return;
+            }
+
+            mostrarLoadingMagico();
+            try {
+                await apiPost("/api/nutricao/salvar-manual", {
+                    tipo: tipoRefeicaoAtual || "Refeição",
+                    alimento: alimento,
+                    quantidade: quantidade,
+                    unidade: unidade,
+                    calorias: calorias,
+                    proteinas_g: proteinas_g,
+                    carboidratos_g: carboidratos_g,
+                    gorduras_g: gorduras_g,
+                    data: state.dataAtual,
+                    aprender: aprender
+                });
+
+                await carregarLogsDoDia();
+                fecharRegistroRapido();
+                if (aprender) {
+                    toast("🎉 Salvo com sucesso e a IA já aprendeu este alimento!");
+                } else {
+                    toast("Refeição registrada com sucesso!");
+                }
+            } catch (err) {
+                toast(err.message || "Erro ao salvar refeição", "error");
+            } finally {
+                esconderLoadingMagico();
+            }
+        }
+
+        async function analisarRegistroRapido() {
+            const desc = document.getElementById("registro-rapido-desc").value;
+            if (!desc.trim()) {
+                toast("O que você comeu?", "error");
+                return;
+            }
+
+            mostrarLoadingMagico();
+            try {
+                const data = await apiPost("/api/nutricao/pre-analisar", {
+                    tipo: tipoRefeicaoAtual,
+                    descricao: desc,
+                    data: state.dataAtual
+                });
+
+                registroRapidoAtual = { ...data, tipo: tipoRefeicaoAtual, descricao: desc };
+
+                // Mostrar Step 2
+                document.getElementById("registro-rapido-nome-refeicao").textContent = tipoRefeicaoAtual;
+                document.getElementById("registro-rapido-kcal").textContent = data.total_kcal;
+                document.getElementById("registro-rapido-p").textContent = data.proteinas_g;
+                document.getElementById("registro-rapido-c").textContent = data.carboidratos_g;
+                document.getElementById("registro-rapido-g").textContent = data.gorduras_g;
+                document.getElementById("registro-rapido-dica").textContent = data.dica_ia;
+                document.getElementById("registro-rapido-confianca").textContent = data.nivel_confianca;
+                
+                const ul = document.getElementById("registro-rapido-itens");
+                ul.innerHTML = (data.itens_detalhados || []).map(item => {
+                    const peso = item.peso_g ? ` (${Math.round(item.peso_g)} g/ml)` : "";
+                    const fonte = item.fonte && item.fonte.startsWith("Base") ? "base de referência" : "estimativa";
+                    return `<li><strong>${escapeHtml(item.nome)}</strong> — ${escapeHtml(item.quantidade_original)} ${escapeHtml(item.unidade_original)}${peso} · ${Math.round(item.kcal)} kcal <small style="opacity:.6">(${escapeHtml(fonte)})</small></li>`;
+                }).join("");
+
+                document.getElementById("registro-rapido-step1").style.display = "none";
+                document.getElementById("registro-rapido-step2").style.display = "block";
+            } catch (err) {
+                toast(err.message, "error");
+                // Exibir opção para preenchimento manual imediatamente
+                const boxFalha = document.getElementById("registro-rapido-falha-ia");
+                if (boxFalha) {
+                    boxFalha.style.display = "block";
+                    const inputAlimento = document.getElementById("manual-alimento");
+                    if (inputAlimento && !inputAlimento.value) {
+                        inputAlimento.value = desc;
+                    }
+                }
+            } finally {
+                esconderLoadingMagico();
+            }
+        }
+
+        function voltarRegistroRapido() {
+            document.getElementById("registro-rapido-step1").style.display = "block";
+            document.getElementById("registro-rapido-step2").style.display = "none";
+        }
+
+        async function confirmarRegistroRapido() {
+            if (!registroRapidoAtual) return;
+            mostrarLoadingMagico();
+            try {
+                await apiPost("/api/logs/salvar-refeicao", {
+                    ...registroRapidoAtual,
+                    data: state.dataAtual
+                });
+                await carregarLogsDoDia();
+                toast("Refeição salva com sucesso!");
+                fecharRegistroRapido();
+            } catch (err) {
+                toast(err.message, "error");
+            } finally {
+                esconderLoadingMagico();
+            }
+        }
+
+        // ==================== MODAL EXERCÍCIO ====================
+        function abrirModalExercicio() {
+            document.getElementById("modal-exercicio-desc").value = "";
+            document.getElementById("modal-exercicio-duracao").value = "";
+            document.getElementById("modal-exercicio-intensidade").value = "Moderada";
+            document.getElementById("modal-exercicio").classList.add("active");
+        }
+
+        function fecharModalExercicio() {
+            document.getElementById("modal-exercicio").classList.remove("active");
+        }
+
+        async function registrarExercicioModal() {
+            if (!state.perfil) {
+                toast("Configure seu perfil antes de registrar exercícios!", "error");
+                navegar("perfil");
+                return;
+            }
+
+            const descricao = document.getElementById("modal-exercicio-desc").value;
+            const duracao = parseInt(document.getElementById("modal-exercicio-duracao").value);
+            const intensidade = document.getElementById("modal-exercicio-intensidade").value;
+
+            if (!descricao.trim()) { toast("Informe o exercício.", "error"); return; }
+            if (!duracao || duracao <= 0) { toast("Informe a duração.", "error"); return; }
+
+            fecharModalExercicio();
+            mostrarLoadingMagico();
+
+            try {
+                await apiPost("/api/exercicio/analisar", {
+                    descricao,
+                    duracao_minutos: duracao,
+                    intensidade,
+                    peso_kg: state.perfil.peso_kg,
+                    data: state.dataAtual
+                });
+
+                await carregarLogsDoDia();
+                toast("Exercício registrado!");
+                if (logsHoje.length > 0) abrirModalDetalhes(logsHoje[0].id);
+            } catch (err) {
+                toast(err.message, "error");
+            } finally {
+                esconderLoadingMagico();
+            }
+        }
+
+        // ==================== REGISTRAR REFEIÇÃO ====================
+        async function registrarRefeicao(e, isFotoMode) {
+            if (e) e.preventDefault();
+            if (!state.perfil) {
+                toast("Configure seu perfil antes de registrar refeições!", "error");
+                navegar("perfil");
+                return;
+            }
+
+            let tipo, descricao;
+            if (isFotoMode) {
+                tipo = document.getElementById("refeicao-tipo-foto").value;
+                descricao = document.getElementById("refeicao-desc-foto").value;
+                if (!refeicaoFotoBase64) {
+                    toast("Por favor, tire ou anexe uma foto!", "error");
+                    return;
+                }
+                fecharModalFoto();
+            } else {
+                tipo = document.getElementById("refeicao-tipo-manual").value;
+                descricao = document.getElementById("refeicao-desc-manual").value;
+                if (!descricao.trim()) {
+                    toast("Por favor, descreva a refeição!", "error");
+                    return;
+                }
+            }
+
+            mostrarLoadingMagico();
+
+            try {
+                const dataRes = await apiPost("/api/nutricao/analisar", {
+                    tipo,
+                    descricao,
+                    data: state.dataAtual,
+                    foto_base64: isFotoMode ? refeicaoFotoBase64 : null
+                });
+
+                await carregarLogsDoDia();
+                if (!isFotoMode) {
+                    document.getElementById("refeicao-desc-manual").value = "";
+                    // voltarEscolhaRefeicao();
+                }
+                toast(`${tipo} registrado!`);
+                if (logsHoje.length > 0) abrirModalDetalhes(logsHoje[0].id);
+            } catch (err) {
+                toast(err.message, "error");
+            } finally {
+                esconderLoadingMagico();
+            }
+        }
+
+
+
+        // ==================== EDITAR E EXCLUIR ====================
+        async function excluirLog(id) {
+            if (!confirm("Tem certeza que deseja excluir este registro?")) return;
+            try {
+                await apiDelete(`/api/logs/${id}`);
+                toast("Registro excluído.");
+                await carregarLogsDoDia();
+            } catch (err) {
+                toast("Erro ao excluir", "error");
+            }
+        }
+
+        function fecharModalEdicao() {
+            document.getElementById("modal-editar").classList.remove("active");
+        }
+
+        function abrirModalEdicao(id) {
+            const log = logsHoje.find(l => l.id === id);
+            if (!log) return;
+
+            document.getElementById("edit-id").value = log.id;
+            document.getElementById("edit-desc").value = log.descricao;
+            document.getElementById("edit-calorias").value = log.calorias;
+            document.getElementById("edit-prot").value = log.proteinas_g || 0;
+            document.getElementById("edit-carb").value = log.carboidratos_g || 0;
+            document.getElementById("edit-gord").value = log.gorduras_g || 0;
+
+            document.getElementById("modal-editar").classList.add("active");
+        }
+
+        async function salvarEdicao(e) {
+            e.preventDefault();
+            const id = document.getElementById("edit-id").value;
+            const btn = document.getElementById("btn-salvar-edicao");
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>';
+
+            try {
+                const dados = {
+                    descricao: document.getElementById("edit-desc").value,
+                    calorias: parseFloat(document.getElementById("edit-calorias").value),
+                    proteinas_g: parseFloat(document.getElementById("edit-prot").value) || 0,
+                    carboidratos_g: parseFloat(document.getElementById("edit-carb").value) || 0,
+                    gorduras_g: parseFloat(document.getElementById("edit-gord").value) || 0
+                };
+
+                await apiPut(`/api/logs/${id}`, dados);
+
+                toast("Registro atualizado!");
+                fecharModalEdicao();
+                await carregarLogsDoDia();
+            } catch (err) {
+                toast("Erro ao atualizar", "error");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Salvar';
+            }
+        }
+
+        // ==================== PROGRESSO ====================
+        async function carregarProgresso() {
+            const container = document.getElementById("progresso-lista");
+            container.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
+            try {
+                const resumo = await apiGet("/api/logs/resumo_semanal");
+
+                let html = '';
+                resumo.slice().reverse().forEach(dia => {
+                    const dataFormatada = formatarDataDisplay(dia.data);
+                    html += `
+                        <div class="progress-item">
+                            <div class="progress-header">
+                                <span>${dataFormatada}</span>
+                                <span style="color: var(--accent-lavender-text)">${dia.consumidas} kcal</span>
+                            </div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 8px;">
+                                P: ${Math.round(dia.proteinas)}g | C: ${Math.round(dia.carboidratos)}g | G: ${Math.round(dia.gorduras)}g
+                            </div>
+                            <div class="progress-bar-bg">
+                                <div class="progress-bar-fill" style="width: ${Math.min((dia.consumidas / state.metaDiaria) * 100, 100)}%; background: ${dia.consumidas > state.metaDiaria ? 'var(--accent-danger)' : 'var(--accent-lavender)'}"></div>
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            } catch (err) {
+                container.innerHTML = '<div class="empty-state"><p>Erro ao carregar dados.</p></div>';
+            }
+        }
+
+        function fecharModalAnaliseGeral() {
+            document.getElementById("modal-analise-geral").classList.remove("active");
+        }
+
+        async function analisarDia() {
+            mostrarLoadingMagico();
+            try {
+                const res = await apiGet(`/api/logs/analisar-dia/${state.dataAtual}`);
+                document.getElementById("analise-geral-titulo").textContent = `Análise do Dia (${formatarDataDisplay(state.dataAtual)})`;
+                document.getElementById("analise-geral-texto").innerHTML = escapeHtml(res.analise || "").replace(/\n/g, '<br>');
+                document.getElementById("modal-analise-geral").classList.add("active");
+            } catch (err) {
+                toast(err.message, "error");
+            } finally {
+                esconderLoadingMagico();
+            }
+        }
+
+        async function analisarSemana() {
+            mostrarLoadingMagico();
+            try {
+                const res = await apiGet("/api/logs/analisar-semana");
+                document.getElementById("analise-geral-titulo").textContent = "Análise da Semana";
+                document.getElementById("analise-geral-texto").innerHTML = escapeHtml(res.analise || "").replace(/\n/g, '<br>');
+                document.getElementById("modal-analise-geral").classList.add("active");
+            } catch (err) {
+                toast(err.message, "error");
+            } finally {
+                esconderLoadingMagico();
+            }
+        }
+
+        // ==================== FOTO DE PERFIL ====================
+        async function uploadFoto(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function (event) {
+                const base64 = event.target.result;
+                // Update UI Immediately
+                const imgHtml = `<img src="${base64}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; object-position: center;">`;
+                document.getElementById("avatar-emoji").innerHTML = imgHtml;
+                if (document.getElementById("header-avatar")) document.getElementById("header-avatar").innerHTML = imgHtml;
+
+                try {
+                    await apiPost("/api/perfil/foto", { foto_base64: base64 });
+                    toast("Foto de perfil atualizada!");
+                } catch (err) {
+                    toast("Erro ao salvar foto", "error");
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // ==================== SALVAR PERFIL ====================
+        async function salvarPerfil(e) {
+            e.preventDefault();
+            const btn = document.getElementById("btn-perfil");
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>';
+
+            try {
+                const dados = {
+                    peso_kg: parseFloat(document.getElementById("peso").value),
+                    altura_cm: parseFloat(document.getElementById("altura").value),
+                    idade: parseInt(document.getElementById("idade").value),
+                    sexo: document.getElementById("sexo").value,
+                    nivel_atividade: parseFloat(document.getElementById("atividade").value),
+                    objetivo: document.getElementById("objetivo").value
+                };
+
+                const metricas = await apiPost("/api/perfil/calcular", dados);
+
+                state.perfil = { ...dados, ...metricas };
+                state.metaDiaria = metricas.meta_calorica;
+
+                document.getElementById("perfil-resultados").style.display = "block";
+                document.getElementById("res-imc").textContent = metricas.imc;
+                document.getElementById("res-tmb").textContent = `${metricas.tmb} kcal`;
+                document.getElementById("res-meta").textContent = `${metricas.meta_calorica} kcal`;
+
+                atualizarDashboard();
+                toast("Perfil salvo com sucesso! ");
+            } catch (err) {
+                toast(err.message, "error");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Salvar Perfil";
+            }
+        }
+
+        // ==================== AGUA ====================
+        function abrirModalAgua() {
+            document.getElementById('modal-agua').classList.add('active');
+            document.getElementById('input-agua-ml').value = '';
+        }
+
+        function fecharModalAgua() {
+            document.getElementById('modal-agua').classList.remove('active');
+        }
+
+        async function salvarAguaManual() {
+            const ml = parseInt(document.getElementById('input-agua-ml').value);
+            if (!ml || ml <= 0) {
+                toast('Digite uma quantidade válida.', 'error');
+                return;
+            }
+            await enviarAgua(ml);
+        }
+
+        async function adicionarAguaRapido(ml) {
+            await enviarAgua(ml);
+        }
+
+        async function enviarAgua(ml) {
+            try {
+                const payload = {
+                    data: state.dataAtual,
+                    quantidade_ml: ml
+                };
+                await apiPost('/api/agua', payload);
+                fecharModalAgua();
+                await carregarLogsDoDia();
+                toast(`+${ml}ml de água adicionados!`, 'success');
+            } catch (err) {
+                toast('Erro ao registrar água. Tente novamente.', 'error');
+            }
+        }
+
+        // ==================== INICIALIZAÇÃO ====================
+        if (state.token) {
+            inicializarApp();
+        }
+
+        // Registrar Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js').then(reg => {
+                    reg.update(); // Força atualização do SW
+                }).catch(() => { });
+            });
+        }
+
+        // Renova os dados e o token quando voltar para o app (PWA)
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === 'visible' && state.token) {
+                apiGet("/api/auth/me").then(me => {
+                    if (me.token) {
+                        state.token = me.token;
+                        localStorage.setItem("nutriia_token", me.token);
+                    }
+                }).catch(() => { });
+                carregarLogsDoDia();
+            }
+        });
+    </script>
+</body>
+
+</html>
